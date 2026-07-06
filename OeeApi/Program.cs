@@ -14,7 +14,19 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 builder.Services.AddDbContext<OeeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddCors();
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins(
+            "http://localhost:3000",
+            "https://oee-dashboard-lime.vercel.app"
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();
+    });
+});
 builder.Services.AddAntiforgery();
 builder.Services.AddOpenApi();
 
@@ -39,7 +51,14 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
-app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
+app.UseCors(x => x
+    .WithOrigins(
+        "http://localhost:3000",
+        "https://oee-dashboard-lime.vercel.app"
+    )
+    .AllowAnyMethod()
+    .AllowAnyHeader()
+    .AllowCredentials());
 app.UseAuthentication();
 app.UseAuthorization();
 
