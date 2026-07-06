@@ -237,7 +237,6 @@ export default function App() {
           </Box>
         </Box>
 
-
         {/* Summary Cards */}
         <Grid container spacing={3} sx={{ mb: 4 }}>
           <Grid size={{ xs: 12, md: 4 }}>
