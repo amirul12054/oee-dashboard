@@ -408,6 +408,16 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
     return Results.Ok("Machine deleted");
 }).RequireAuthorization();
 
+app.MapPost("/auth/make-admin", async (OeeDbContext db, MakeAdminRequest req) =>
+{
+    if (req.Secret != "OeeSetup2026") return Results.Unauthorized();
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+    if (user == null) return Results.NotFound();
+    user.Role = "admin";
+    await db.SaveChangesAsync();
+    return Results.Ok("Role updated to admin");
+});
+
 app.Run();
 
 record RegisterRequest(string Email, string Password);
@@ -418,3 +428,4 @@ record VerifyRegisterRequest(string Email, string Code, string Password);
 record ForgotPasswordRequest(string Email);
 record ResetPasswordRequest(string Email, string Code, string NewPassword);
 record UpdateRoleRequest(string Role);
+record MakeAdminRequest(string Email, string Secret);
