@@ -1,0 +1,20 @@
+# .NET
+**/bin/
+**/obj/
+**/appsettings.json
+
+# React
+**/node_modules/
+**/.env
+
+# VS Code
+.vscode/
+
+# Learning files
+function.js
+hello.js
+loops.js
+machine.js
+machineObject.js
+OeeApi.zip
+OeeApi/package*.json
