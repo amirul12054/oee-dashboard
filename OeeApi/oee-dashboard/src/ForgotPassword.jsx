@@ -4,6 +4,7 @@ import {
     TextField, Typography, Alert
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
+import API_URL from "./config";
 
 export default function ForgotPassword({ onBackToLogin }) {
     const [step, setStep] = useState(1);
@@ -20,7 +21,7 @@ export default function ForgotPassword({ onBackToLogin }) {
         if (!email) { setError("Email is required"); return; }
         setLoading(true);
         try {
-            await fetch("http://localhost:5235/auth/forgot-password", {
+            await fetch(`${API_URL}/auth/forgot-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email }),
@@ -46,7 +47,7 @@ export default function ForgotPassword({ onBackToLogin }) {
         }
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:5235/auth/reset-password", {
+            const res = await fetch(`${API_URL}/auth/reset-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code, newPassword }),

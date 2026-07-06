@@ -16,6 +16,7 @@ import ForgotPassword from "./ForgotPassword";
 import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
 import AdminPanel from "./AdminPanel";
+import API_URL from "./config";
 
 
 function parseToken(token) {
@@ -84,7 +85,7 @@ export default function App() {
 
   const fetchMachines = () => {
     const storedToken = localStorage.getItem("oee_token");
-    fetch("http://localhost:5235/machines", {
+    fetch(`${API_URL}/machines`, {
       headers: { Authorization: `Bearer ${storedToken}` }
     })
       .then((res) => {
@@ -131,7 +132,7 @@ export default function App() {
   };
 
   const handleSave = async () => {
-    await fetch(`http://localhost:5235/machines/${editMachine.id}`, {
+    await fetch(`${API_URL}/machines`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",

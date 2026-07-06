@@ -4,6 +4,7 @@ import {
     TextField, Typography, Alert
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
+import API_URL from "./config";
 
 export default function Register({ onBackToLogin }) {
     const [step, setStep] = useState(1);
@@ -20,7 +21,7 @@ export default function Register({ onBackToLogin }) {
         if (!email) { setError("Email is required"); return; }
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:5235/auth/send-code", {
+            const res = await fetch(`${API_URL}/auth/send-code`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, type: "register" }),
@@ -51,7 +52,7 @@ export default function Register({ onBackToLogin }) {
         }
         setLoading(true);
         try {
-            const res = await fetch("http://localhost:5235/auth/verify-register", {
+            const res = await fetch(`${API_URL}/auth/verify-register`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, code, password }),

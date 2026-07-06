@@ -4,6 +4,7 @@ import {
     TextField, Typography, Alert, Divider
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
+import API_URL from "./config";
 
 export default function Login({ onLogin, onRegister, onForgotPassword }) {
     const [email, setEmail] = useState("");
@@ -15,7 +16,7 @@ export default function Login({ onLogin, onRegister, onForgotPassword }) {
         setLoading(true);
         setError("");
         try {
-            const res = await fetch("http://localhost:5235/auth/login", {
+            const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ email, password }),

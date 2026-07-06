@@ -8,6 +8,7 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import API_URL from "./config";
 
 const OEE_FIELDS = [
     { key: "colDate", label: "Date/Time", required: true },
@@ -42,7 +43,7 @@ export default function CsvImport({ onClose }) {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const res = await fetch("http://localhost:5235/import/preview", {
+            const res = await fetch(`${API_URL}/import/preview`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${localStorage.getItem("oee_token")}` },
                 body: formData,
@@ -78,7 +79,7 @@ export default function CsvImport({ onClose }) {
             Object.entries(mapping).forEach(([key, val]) => {
                 formData.append(key, val.toString());
             });
-            const res = await fetch("http://localhost:5235/import/process", {
+            const res = await fetch(`${API_URL}/import/process`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${localStorage.getItem("oee_token")}` },
                 body: formData,

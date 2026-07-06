@@ -8,6 +8,7 @@ import {
     LineChart, Line, XAxis, YAxis, CartesianGrid,
     Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts";
+import API_URL from "./config";
 
 export default function OeeCharts({ machines }) {
     const [selectedMachine, setSelectedMachine] = useState("");
@@ -19,7 +20,7 @@ export default function OeeCharts({ machines }) {
         if (!selectedMachine) return;
         setLoading(true);
         setError("");
-        fetch(`http://localhost:5235/machines/${selectedMachine}/history`, {
+        fetch(`${API_URL}/machines/${selectedMachine}/history`, {
             headers: { Authorization: `Bearer ${localStorage.getItem("oee_token")}` }
         })
             .then((res) => res.json())

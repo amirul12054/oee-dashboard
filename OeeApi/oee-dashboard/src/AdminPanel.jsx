@@ -11,8 +11,9 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import API_URL from "./config";
 
-const API = "http://localhost:5235";
+const API = API_URL
 const token = () => localStorage.getItem("oee_token");
 
 export default function AdminPanel({ onClose, currentUserEmail }) {
