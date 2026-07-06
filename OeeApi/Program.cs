@@ -14,7 +14,7 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 builder.Services.AddDbContext<OeeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddCors(options =>
+builder.Services.AddCors();
 {
     options.AddDefaultPolicy(policy =>
     {

@@ -132,7 +132,7 @@ export default function App() {
   };
 
   const handleSave = async () => {
-    await fetch(`${API_URL}/machines`, {
+    await fetch(`${API_URL}/machines/${editMachine.id}`, {
       method: "PUT",
       headers: {
         "Content-Type": "application/json",
