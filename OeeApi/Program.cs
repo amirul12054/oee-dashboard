@@ -15,18 +15,6 @@ builder.Services.AddDbContext<OeeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddCors();
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins(
-            "http://localhost:3000",
-            "https://oee-dashboard-lime.vercel.app"
-        )
-        .AllowAnyMethod()
-        .AllowAnyHeader()
-        .AllowCredentials();
-    });
-});
 builder.Services.AddAntiforgery();
 builder.Services.AddOpenApi();
 
