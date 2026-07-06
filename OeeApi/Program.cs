@@ -407,12 +407,7 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
     await db.SaveChangesAsync();
     return Results.Ok("Machine deleted");
 }).RequireAuthorization();
-// TEMPORARY - run once to setup database, then remove
-app.MapGet("/setup-db", async (OeeDbContext db) =>
-{
-    await db.Database.MigrateAsync();
-    return Results.Ok("Database setup complete");
-});
+
 app.Run();
 
 record RegisterRequest(string Email, string Password);
