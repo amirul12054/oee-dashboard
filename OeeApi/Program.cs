@@ -933,3 +933,6 @@ record CreateBreakdownRequest(int MachineId, int ReportedByUserId, int? Assigned
 record UpdateBreakdownRequest(string Status, string? RootCause, string? CorrectiveAction, int? AssignedToUserId);
 record CompletePmRequest(int CompletedByUserId, string? Notes);
 record SetRoleRequest(string Email, string Secret, string Role);
+
+record AddAssigneeRequest(int UserId, string Role);
+record UpdateProfileRequest(int UserId, string? PhoneNumber, string? Department);
