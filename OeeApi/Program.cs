@@ -415,9 +415,10 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
     return Results.Ok("Machine deleted");
 }).RequireAuthorization();
 
-app.MapPost("/auth/make-admin", async (OeeDbContext db, MakeAdminRequest req) =>
+app.MapPost("/auth/make-admin", async (OeeDbContext db, IConfiguration config, MakeAdminRequest req) =>
 {
-    if (req.Secret != "OeeSetup2026") return Results.Unauthorized();
+    var setupSecret = config["Admin:SetupSecret"];
+    if (string.IsNullOrEmpty(setupSecret) || req.Secret != setupSecret) return Results.Unauthorized();
     var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
     if (user == null) return Results.NotFound();
     user.Role = "admin";
