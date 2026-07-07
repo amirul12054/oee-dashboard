@@ -691,7 +691,233 @@ app.MapGet("/setup-pdca", async (OeeDbContext db) =>
     ");
     return Results.Ok("PDCA table created");
 });
+app.MapGet("/setup-phone", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""PhoneNumber"" VARCHAR(20);
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Department"" VARCHAR(100);
+        CREATE TABLE IF NOT EXISTS ""BreakdownAssignees"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""BreakdownId"" INTEGER NOT NULL REFERENCES ""Breakdowns""(""Id""),
+            ""UserId"" INTEGER NOT NULL REFERENCES ""Users""(""Id""),
+            ""Role"" VARCHAR(50) NOT NULL DEFAULT 'Technician',
+            ""AssignedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+    ");
+    return Results.Ok("Phone and assignees setup complete");
+});
 
+// GET breakdown assignees
+app.MapGet("/breakdowns/{id}/assignees", async (OeeDbContext db, int id) =>
+{
+    var assignees = await db.BreakdownAssignees
+        .Where(a => a.BreakdownId == id)
+        .ToListAsync();
+
+    var result = new List<object>();
+    foreach (var a in assignees)
+    {
+        var user = await db.Users.FindAsync(a.UserId);
+        if (user != null)
+            result.Add(new
+            {
+                a.Id,
+                a.BreakdownId,
+                a.UserId,
+                a.Role,
+                a.AssignedAt,
+                user.Email,
+                user.PhoneNumber,
+                user.Department
+            });
+    }
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+// POST add assignee to breakdown
+app.MapPost("/breakdowns/{id}/assignees", async (OeeDbContext db, IConfiguration config, int id, AddAssigneeRequest req) =>
+{
+    var breakdown = await db.Breakdowns.FindAsync(id);
+    if (breakdown == null) return Results.NotFound();
+
+    // Check not already assigned
+    var existing = await db.BreakdownAssignees
+        .FirstOrDefaultAsync(a => a.BreakdownId == id && a.UserId == req.UserId);
+    if (existing != null) return Results.BadRequest("User already assigned");
+
+    db.BreakdownAssignees.Add(new BreakdownAssigneeEntity
+    {
+        BreakdownId = id,
+        UserId = req.UserId,
+        Role = req.Role,
+        AssignedAt = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    // Send email alert
+    var user = await db.Users.FindAsync(req.UserId);
+    var machine = await db.Machines.FindAsync(breakdown.MachineId);
+    if (user != null && machine != null)
+    {
+        try
+        {
+            var client = new SendGridClient(config["SendGrid:ApiKey"]);
+            var from = new EmailAddress(config["SendGrid:FromEmail"], config["SendGrid:FromName"]);
+            var msg = MailHelper.CreateSingleEmail(
+                from, new EmailAddress(user.Email),
+                $"[ASSIGNED] {machine.Name} Breakdown - {breakdown.Priority} Priority",
+                $"You have been assigned to breakdown: {breakdown.Title}",
+                $@"<h2>You have been assigned to a breakdown</h2>
+                   <p><strong>Machine:</strong> {machine.Name}</p>
+                   <p><strong>Breakdown:</strong> {breakdown.Title}</p>
+                   <p><strong>Priority:</strong> {breakdown.Priority}</p>
+                   <p><strong>Your Role:</strong> {req.Role}</p>
+                   <p>Please attend immediately.</p>"
+            );
+            await client.SendEmailAsync(msg);
+        }
+        catch { }
+    }
+
+    return Results.Ok("Assignee added");
+}).RequireAuthorization();
+
+// DELETE assignee from breakdown
+app.MapDelete("/breakdowns/{id}/assignees/{userId}", async (OeeDbContext db, int id, int userId) =>
+{
+    var assignee = await db.BreakdownAssignees
+        .FirstOrDefaultAsync(a => a.BreakdownId == id && a.UserId == userId);
+    if (assignee == null) return Results.NotFound();
+    db.BreakdownAssignees.Remove(assignee);
+    await db.SaveChangesAsync();
+    return Results.Ok("Assignee removed");
+}).RequireAuthorization();
+
+// PUT update user profile (phone, department)
+app.MapPut("/users/profile", async (OeeDbContext db, UpdateProfileRequest req) =>
+{
+    var user = await db.Users.FindAsync(req.UserId);
+    if (user == null) return Results.NotFound();
+    user.PhoneNumber = req.PhoneNumber;
+    user.Department = req.Department;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { user.Id, user.Email, user.PhoneNumber, user.Department, user.Role });
+}).RequireAuthorization();
+
+// GET all users with profile
+app.MapGet("/users", async (OeeDbContext db) =>
+{
+    var users = await db.Users
+        .Select(u => new { u.Id, u.Email, u.Role, u.PhoneNumber, u.Department })
+        .ToListAsync();
+    return Results.Ok(users);
+}).RequireAuthorization();
+
+// GET breakdown assignees
+app.MapGet("/breakdowns/{id}/assignees", async (OeeDbContext db, int id) =>
+{
+    var assignees = await db.BreakdownAssignees
+        .Where(a => a.BreakdownId == id)
+        .ToListAsync();
+
+    var result = new List<object>();
+    foreach (var a in assignees)
+    {
+        var user = await db.Users.FindAsync(a.UserId);
+        if (user != null)
+            result.Add(new
+            {
+                a.Id,
+                a.BreakdownId,
+                a.UserId,
+                a.Role,
+                a.AssignedAt,
+                user.Email,
+                user.PhoneNumber,
+                user.Department
+            });
+    }
+    return Results.Ok(result);
+}).RequireAuthorization();
+
+// POST add assignee to breakdown
+app.MapPost("/breakdowns/{id}/assignees", async (OeeDbContext db, IConfiguration config, int id, AddAssigneeRequest req) =>
+{
+    var breakdown = await db.Breakdowns.FindAsync(id);
+    if (breakdown == null) return Results.NotFound();
+
+    // Check not already assigned
+    var existing = await db.BreakdownAssignees
+        .FirstOrDefaultAsync(a => a.BreakdownId == id && a.UserId == req.UserId);
+    if (existing != null) return Results.BadRequest("User already assigned");
+
+    db.BreakdownAssignees.Add(new BreakdownAssigneeEntity
+    {
+        BreakdownId = id,
+        UserId = req.UserId,
+        Role = req.Role,
+        AssignedAt = DateTime.UtcNow
+    });
+    await db.SaveChangesAsync();
+
+    // Send email alert
+    var user = await db.Users.FindAsync(req.UserId);
+    var machine = await db.Machines.FindAsync(breakdown.MachineId);
+    if (user != null && machine != null)
+    {
+        try
+        {
+            var client = new SendGridClient(config["SendGrid:ApiKey"]);
+            var from = new EmailAddress(config["SendGrid:FromEmail"], config["SendGrid:FromName"]);
+            var msg = MailHelper.CreateSingleEmail(
+                from, new EmailAddress(user.Email),
+                $"[ASSIGNED] {machine.Name} Breakdown - {breakdown.Priority} Priority",
+                $"You have been assigned to breakdown: {breakdown.Title}",
+                $@"<h2>You have been assigned to a breakdown</h2>
+                   <p><strong>Machine:</strong> {machine.Name}</p>
+                   <p><strong>Breakdown:</strong> {breakdown.Title}</p>
+                   <p><strong>Priority:</strong> {breakdown.Priority}</p>
+                   <p><strong>Your Role:</strong> {req.Role}</p>
+                   <p>Please attend immediately.</p>"
+            );
+            await client.SendEmailAsync(msg);
+        }
+        catch { }
+    }
+
+    return Results.Ok("Assignee added");
+}).RequireAuthorization();
+
+// DELETE assignee from breakdown
+app.MapDelete("/breakdowns/{id}/assignees/{userId}", async (OeeDbContext db, int id, int userId) =>
+{
+    var assignee = await db.BreakdownAssignees
+        .FirstOrDefaultAsync(a => a.BreakdownId == id && a.UserId == userId);
+    if (assignee == null) return Results.NotFound();
+    db.BreakdownAssignees.Remove(assignee);
+    await db.SaveChangesAsync();
+    return Results.Ok("Assignee removed");
+}).RequireAuthorization();
+
+// PUT update user profile (phone, department)
+app.MapPut("/users/profile", async (OeeDbContext db, UpdateProfileRequest req) =>
+{
+    var user = await db.Users.FindAsync(req.UserId);
+    if (user == null) return Results.NotFound();
+    user.PhoneNumber = req.PhoneNumber;
+    user.Department = req.Department;
+    await db.SaveChangesAsync();
+    return Results.Ok(new { user.Id, user.Email, user.PhoneNumber, user.Department, user.Role });
+}).RequireAuthorization();
+
+// GET all users with profile
+app.MapGet("/users", async (OeeDbContext db) =>
+{
+    var users = await db.Users
+        .Select(u => new { u.Id, u.Email, u.Role, u.PhoneNumber, u.Department })
+        .ToListAsync();
+    return Results.Ok(users);
+}).RequireAuthorization();
 app.Run();
 
 record RegisterRequest(string Email, string Password);

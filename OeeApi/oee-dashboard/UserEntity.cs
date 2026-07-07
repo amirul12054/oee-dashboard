@@ -4,4 +4,6 @@ public class UserEntity
     public string Email { get; set; } = "";
     public string PasswordHash { get; set; } = "";
     public string Role { get; set; } = "operator";
+    public string? PhoneNumber { get; set; }
+    public string? Department { get; set; }
 }

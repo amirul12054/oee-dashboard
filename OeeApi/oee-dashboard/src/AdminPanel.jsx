@@ -35,7 +35,7 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
     const [newRole, setNewRole] = useState("");
 
     const fetchUsers = () => {
-        fetch(`${API}/admin/users`, {
+        fetch(`${API_URL}/users`, {
             headers: { Authorization: `Bearer ${token()}` }
         })
             .then((res) => res.json())
@@ -158,6 +158,8 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
                                     <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Department</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -166,12 +168,10 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                                     <TableRow key={user.id} hover>
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell>
-                                            <Chip
-                                                label={user.role}
-                                                color={user.role === "admin" ? "primary" : "default"}
-                                                size="small"
-                                            />
+                                            <Chip label={user.role} color={user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
                                         </TableCell>
+                                        <TableCell>{user.phoneNumber || "-"}</TableCell>
+                                        <TableCell>{user.department || "-"}</TableCell>
                                         <TableCell>
                                             <IconButton size="small" color="primary"
                                                 onClick={() => { setEditUser(user); setNewRole(user.role); }}
