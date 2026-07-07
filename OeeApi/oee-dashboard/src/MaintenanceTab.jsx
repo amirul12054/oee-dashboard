@@ -171,7 +171,7 @@ export default function MaintenanceTab({ machines, onClose }) {
     };
 
     const getMachineName = (id) => machines.find(m => m.id === id)?.name || `Machine ${id}`;
-    const getUserEmail = (id) => users.find(u => u.id === id)?.email || `User ${id}`;
+    //const getUserEmail = (id) => users.find(u => u.id === id)?.email || `User ${id}`;
 
     const priorityColor = (p) => p === "High" ? "error" : p === "Medium" ? "warning" : "success";
     const statusColor = (s) => s === "Open" ? "error" : s === "In Progress" ? "warning" : "success";
