@@ -12,4 +12,5 @@ public class OeeDbContext : DbContext
     public DbSet<EightDReportEntity> EightDReports { get; set; }
     public DbSet<PmScheduleEntity> PmSchedules { get; set; }
     public DbSet<PmCompletionEntity> PmCompletions { get; set; }
+    public DbSet<PdcaEntity> Pdca { get; set; }
 }
