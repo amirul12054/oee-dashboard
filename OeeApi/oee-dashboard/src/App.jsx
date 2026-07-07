@@ -17,6 +17,7 @@ import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
 import AdminPanel from "./AdminPanel";
 import API_URL from "./config";
+import MaintenanceTab from "./MaintenanceTab";
 
 
 function parseToken(token) {
@@ -82,6 +83,7 @@ export default function App() {
   const userInfo = parseToken(token);
   const [showImport, setShowImport] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showMaintenance, setShowMaintenance] = useState(false);
 
   const fetchMachines = () => {
     const storedToken = localStorage.getItem("oee_token");
@@ -183,6 +185,12 @@ export default function App() {
       </Container>
     </Box>
   );
+  if (showMaintenance) return (
+    <MaintenanceTab
+      machines={machines}
+      onClose={() => { setShowMaintenance(false); fetchMachines(); }}
+    />
+  );
 
   if (loading) return (
     <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
@@ -235,6 +243,10 @@ export default function App() {
               localStorage.removeItem("oee_token");
               setToken("");
             }}>Logout</Button>
+            <Button variant="outlined" size="small" color="warning"
+              onClick={() => setShowMaintenance(true)}>
+              Maintenance
+            </Button>
           </Box>
         </Box>
 
