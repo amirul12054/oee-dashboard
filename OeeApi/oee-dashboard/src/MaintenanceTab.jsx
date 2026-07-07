@@ -293,10 +293,12 @@ export default function MaintenanceTab({ machines, onClose }) {
                 {tab === 1 && (
                     <Box>
                         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-                            <Button variant="contained" startIcon={<AddIcon />}
-                                onClick={() => setShowAddPm(true)}>
-                                Add PM Schedule
-                            </Button>
+                            {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                <Button variant="contained" startIcon={<AddIcon />}
+                                    onClick={() => setShowAddPm(true)}>
+                                    Add PM Schedule
+                                </Button>
+                            )}
                         </Box>
                         <TableContainer component={Paper} elevation={2}>
                             <Table>
@@ -381,10 +383,12 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell><Chip label={r.status} color={r.status === "Open" ? "error" : "success"} size="small" /></TableCell>
                                             <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
-                                                <Button size="small" variant="outlined"
-                                                    onClick={() => { setSelected8D({ ...r }); setShow8D(true); }}>
-                                                    Fill 8D
-                                                </Button>
+                                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                    <Button size="small" variant="outlined"
+                                                        onClick={() => { setSelected8D({ ...r }); setShow8D(true); }}>
+                                                        Fill 8D
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))}
