@@ -4,12 +4,11 @@ import {
   Container, Grid, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, IconButton, MenuItem
+  Button, TextField, MenuItem
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
-import EditIcon from "@mui/icons-material/Edit";
 import Login from "./Login";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
@@ -77,8 +76,6 @@ export default function App() {
   const [page, setPage] = useState("login");
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editMachine, setEditMachine] = useState(null);
-  const [formData, setFormData] = useState({});
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const userInfo = parseToken(token);
   const [showImport, setShowImport] = useState(false);
@@ -119,35 +116,6 @@ export default function App() {
     return () => clearInterval(interval);
   }, [token]);
 
-  const handleEditOpen = (machine) => {
-    setEditMachine(machine);
-    setFormData({ ...machine });
-  };
-
-  const handleEditClose = () => {
-    setEditMachine(null);
-    setFormData({});
-  };
-
-  const handleFormChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
-
-  const handleSave = async () => {
-    await fetch(`${API_URL}/machines/${editMachine.id}`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("oee_token")}`
-      },
-      body: JSON.stringify({
-        ...formData,
-        isRunning: formData.isRunning === true || formData.isRunning === "true"
-      }),
-    });
-    handleEditClose();
-    fetchMachines();
-  };
   const handleLogin = (newToken) => {
     localStorage.setItem("oee_token", newToken);
     setToken(newToken);
@@ -343,45 +311,7 @@ export default function App() {
         <OeeCharts machines={machines} />
       </Container>
 
-      {/* Edit Dialog */}
-      <Dialog open={!!editMachine} onClose={handleEditClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Machine: {editMachine?.name}</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-            <TextField label="Units Produced" type="number"
-              value={formData.unitsProduced || ""}
-              onChange={(e) => handleFormChange("unitsProduced", parseInt(e.target.value))} />
-            <TextField label="Good Units" type="number"
-              value={formData.goodUnits || ""}
-              onChange={(e) => handleFormChange("goodUnits", parseInt(e.target.value))} />
-            <TextField label="Run Time (minutes)" type="number"
-              value={formData.runTimeMinutes || ""}
-              onChange={(e) => handleFormChange("runTimeMinutes", parseInt(e.target.value))} />
-            <TextField label="Planned Time (minutes)" type="number"
-              value={formData.plannedTimeMinutes || ""}
-              onChange={(e) => handleFormChange("plannedTimeMinutes", parseInt(e.target.value))} />
-            <TextField label="Actual Rate (units/hour)" type="number"
-              value={formData.actualRate || ""}
-              onChange={(e) => handleFormChange("actualRate", parseInt(e.target.value))} />
-            <TextField label="Ideal Rate (units/hour)" type="number"
-              value={formData.idealRate || ""}
-              onChange={(e) => handleFormChange("idealRate", parseInt(e.target.value))} />
-            <TextField
-              label="Is Running"
-              select
-              value={formData.isRunning === true || formData.isRunning === "true" ? "true" : "false"}
-              onChange={(e) => handleFormChange("isRunning", e.target.value)}
-            >
-              <MenuItem value="true">Running</MenuItem>
-              <MenuItem value="false">Stopped</MenuItem>
-            </TextField>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleEditClose}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
-        </DialogActions>
-      </Dialog>
+
     </Box>
 
   );
