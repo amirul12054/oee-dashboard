@@ -515,7 +515,8 @@ app.MapPut("/breakdowns/{id}", async (OeeDbContext db, int id, UpdateBreakdownRe
         var endTime = DateTime.UtcNow;
         var startTime = DateTime.SpecifyKind(breakdown.StartTime, DateTimeKind.Utc);
         breakdown.EndTime = endTime;
-        breakdown.DowntimeMinutes = (int)(endTime - startTime).TotalMinutes;
+        var rawMinutes = (endTime - startTime).TotalMinutes;
+        breakdown.DowntimeMinutes = rawMinutes < 1 ? 1 : (int)rawMinutes;
 
         // Auto-create 8D report if downtime > 60 minutes
         if (breakdown.DowntimeMinutes > 60)

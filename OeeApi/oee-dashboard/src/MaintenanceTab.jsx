@@ -277,7 +277,13 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell><Chip label={b.breakdownType} size="small" /></TableCell>
                                             <TableCell><Chip label={b.priority} color={priorityColor(b.priority)} size="small" /></TableCell>
                                             <TableCell><Chip label={b.status} color={statusColor(b.status)} size="small" /></TableCell>
-                                            <TableCell>{b.downtimeMinutes ? `${b.downtimeMinutes} min` : "Ongoing"}</TableCell>
+                                            <TableCell>
+                                                {b.status === "Closed"
+                                                    ? `${b.downtimeMinutes || 1} min`
+                                                    : b.downtimeMinutes
+                                                        ? `${b.downtimeMinutes} min`
+                                                        : "Ongoing"}
+                                            </TableCell>
                                             <TableCell>{new Date(b.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
                                                 {(b.status === "Open" || b.status === "In Progress") &&
