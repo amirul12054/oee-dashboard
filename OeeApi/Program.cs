@@ -425,65 +425,208 @@ app.MapPost("/auth/make-admin", async (OeeDbContext db, MakeAdminRequest req) =>
     return Results.Ok("Role updated to admin");
 });
 
-app.MapGet("/setup-maintenance", async (OeeDbContext db) =>
+// GET all breakdowns
+app.MapGet("/breakdowns", async (OeeDbContext db) =>
 {
-    await db.Database.ExecuteSqlRawAsync(@"
-        CREATE TABLE IF NOT EXISTS ""Breakdowns"" (
-            ""Id"" SERIAL PRIMARY KEY,
-            ""MachineId"" INTEGER NOT NULL REFERENCES ""Machines""(""Id""),
-            ""ReportedByUserId"" INTEGER NOT NULL REFERENCES ""Users""(""Id""),
-            ""AssignedToUserId"" INTEGER REFERENCES ""Users""(""Id""),
-            ""Title"" VARCHAR(255) NOT NULL,
-            ""Description"" TEXT,
-            ""BreakdownType"" VARCHAR(50) NOT NULL DEFAULT 'Unplanned',
-            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Open',
-            ""Priority"" VARCHAR(50) NOT NULL DEFAULT 'Medium',
-            ""StartTime"" TIMESTAMP WITH TIME ZONE NOT NULL,
-            ""EndTime"" TIMESTAMP WITH TIME ZONE,
-            ""DowntimeMinutes"" INTEGER,
-            ""RootCause"" TEXT,
-            ""CorrectiveAction"" TEXT,
-            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-            ""UpdatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS ""EightDReports"" (
-            ""Id"" SERIAL PRIMARY KEY,
-            ""BreakdownId"" INTEGER NOT NULL REFERENCES ""Breakdowns""(""Id""),
-            ""D1_Team"" TEXT,
-            ""D2_Problem"" TEXT,
-            ""D3_ContainmentAction"" TEXT,
-            ""D4_RootCause"" TEXT,
-            ""D5_CorrectiveAction"" TEXT,
-            ""D6_Implementation"" TEXT,
-            ""D7_Prevention"" TEXT,
-            ""D8_Closure"" TEXT,
-            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Open',
-            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-            ""UpdatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS ""PmSchedules"" (
-            ""Id"" SERIAL PRIMARY KEY,
-            ""MachineId"" INTEGER NOT NULL REFERENCES ""Machines""(""Id""),
-            ""Title"" VARCHAR(255) NOT NULL,
-            ""Description"" TEXT,
-            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'PM',
-            ""FrequencyDays"" INTEGER NOT NULL DEFAULT 30,
-            ""LastDoneAt"" TIMESTAMP WITH TIME ZONE,
-            ""NextDueAt"" TIMESTAMP WITH TIME ZONE NOT NULL,
-            ""AssignedToUserId"" INTEGER REFERENCES ""Users""(""Id""),
-            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-        );
-        CREATE TABLE IF NOT EXISTS ""PmCompletions"" (
-            ""Id"" SERIAL PRIMARY KEY,
-            ""PmScheduleId"" INTEGER NOT NULL REFERENCES ""PmSchedules""(""Id""),
-            ""CompletedByUserId"" INTEGER NOT NULL REFERENCES ""Users""(""Id""),
-            ""CompletedAt"" TIMESTAMP WITH TIME ZONE NOT NULL,
-            ""Notes"" TEXT,
-            ""NextDueAt"" TIMESTAMP WITH TIME ZONE NOT NULL
-        );
-    ");
-    return Results.Ok("Maintenance tables created");
-});
+    var breakdowns = await db.Breakdowns
+        .OrderByDescending(b => b.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(breakdowns);
+}).RequireAuthorization();
+
+// GET breakdown by id
+app.MapGet("/breakdowns/{id}", async (OeeDbContext db, int id) =>
+{
+    var breakdown = await db.Breakdowns.FindAsync(id);
+    if (breakdown == null) return Results.NotFound();
+    return Results.Ok(breakdown);
+}).RequireAuthorization();
+
+// POST create breakdown
+app.MapPost("/breakdowns", async (OeeDbContext db, IConfiguration config, CreateBreakdownRequest req) =>
+{
+    var breakdown = new BreakdownEntity
+    {
+        MachineId = req.MachineId,
+        ReportedByUserId = req.ReportedByUserId,
+        AssignedToUserId = req.AssignedToUserId,
+        Title = req.Title,
+        Description = req.Description,
+        BreakdownType = req.BreakdownType,
+        Priority = req.Priority,
+        StartTime = DateTime.UtcNow,
+        Status = "Open",
+        CreatedAt = DateTime.UtcNow,
+        UpdatedAt = DateTime.UtcNow
+    };
+
+    db.Breakdowns.Add(breakdown);
+    await db.SaveChangesAsync();
+
+    // Send email alert if assigned to someone
+    if (req.AssignedToUserId.HasValue)
+    {
+        var assignedUser = await db.Users.FindAsync(req.AssignedToUserId.Value);
+        var machine = await db.Machines.FindAsync(req.MachineId);
+        if (assignedUser != null && machine != null)
+        {
+            try
+            {
+                var apiKey = config["SendGrid:ApiKey"];
+                var client = new SendGridClient(apiKey);
+                var from = new EmailAddress(config["SendGrid:FromEmail"], config["SendGrid:FromName"]);
+                var to = new EmailAddress(assignedUser.Email);
+                var subject = $"[BREAKDOWN ALERT] {machine.Name} - {req.Priority} Priority";
+                var body = $@"
+                    <h2>Breakdown Alert</h2>
+                    <p><strong>Machine:</strong> {machine.Name}</p>
+                    <p><strong>Title:</strong> {req.Title}</p>
+                    <p><strong>Description:</strong> {req.Description}</p>
+                    <p><strong>Priority:</strong> {req.Priority}</p>
+                    <p><strong>Type:</strong> {req.BreakdownType}</p>
+                    <p><strong>Time:</strong> {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC</p>
+                    <p>Please attend to this breakdown immediately.</p>
+                ";
+                var msg = MailHelper.CreateSingleEmail(from, to, subject, req.Title, body);
+                await client.SendEmailAsync(msg);
+            }
+            catch { /* Don't fail if email fails */ }
+        }
+    }
+
+    return Results.Created($"/breakdowns/{breakdown.Id}", breakdown);
+}).RequireAuthorization();
+
+// PUT close/update breakdown
+app.MapPut("/breakdowns/{id}", async (OeeDbContext db, int id, UpdateBreakdownRequest req) =>
+{
+    var breakdown = await db.Breakdowns.FindAsync(id);
+    if (breakdown == null) return Results.NotFound();
+
+    breakdown.Status = req.Status;
+    breakdown.RootCause = req.RootCause;
+    breakdown.CorrectiveAction = req.CorrectiveAction;
+    breakdown.AssignedToUserId = req.AssignedToUserId;
+    breakdown.UpdatedAt = DateTime.UtcNow;
+
+    if (req.Status == "Closed" && breakdown.EndTime == null)
+    {
+        breakdown.EndTime = DateTime.UtcNow;
+        breakdown.DowntimeMinutes = (int)(DateTime.UtcNow - breakdown.StartTime).TotalMinutes;
+
+        // Auto-create 8D report if downtime > 60 minutes
+        if (breakdown.DowntimeMinutes > 60)
+        {
+            var machine = await db.Machines.FindAsync(breakdown.MachineId);
+            db.EightDReports.Add(new EightDReportEntity
+            {
+                BreakdownId = breakdown.Id,
+                D2_Problem = $"Machine: {machine?.Name} - {breakdown.Title}",
+                Status = "Open",
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            });
+        }
+    }
+
+    await db.SaveChangesAsync();
+    return Results.Ok(breakdown);
+}).RequireAuthorization();
+
+// GET 8D reports
+app.MapGet("/8d-reports", async (OeeDbContext db) =>
+{
+    var reports = await db.EightDReports
+        .OrderByDescending(r => r.CreatedAt)
+        .ToListAsync();
+    return Results.Ok(reports);
+}).RequireAuthorization();
+
+// PUT update 8D report
+app.MapPut("/8d-reports/{id}", async (OeeDbContext db, int id, EightDReportEntity updated) =>
+{
+    var report = await db.EightDReports.FindAsync(id);
+    if (report == null) return Results.NotFound();
+    report.D1_Team = updated.D1_Team;
+    report.D2_Problem = updated.D2_Problem;
+    report.D3_ContainmentAction = updated.D3_ContainmentAction;
+    report.D4_RootCause = updated.D4_RootCause;
+    report.D5_CorrectiveAction = updated.D5_CorrectiveAction;
+    report.D6_Implementation = updated.D6_Implementation;
+    report.D7_Prevention = updated.D7_Prevention;
+    report.D8_Closure = updated.D8_Closure;
+    report.Status = updated.Status;
+    report.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(report);
+}).RequireAuthorization();
+
+// GET PM schedules
+app.MapGet("/pm-schedules", async (OeeDbContext db) =>
+{
+    var schedules = await db.PmSchedules
+        .OrderBy(p => p.NextDueAt)
+        .ToListAsync();
+    return Results.Ok(schedules);
+}).RequireAuthorization();
+
+// POST create PM schedule
+app.MapPost("/pm-schedules", async (OeeDbContext db, PmScheduleEntity schedule) =>
+{
+    schedule.CreatedAt = DateTime.UtcNow;
+    db.PmSchedules.Add(schedule);
+    await db.SaveChangesAsync();
+    return Results.Created($"/pm-schedules/{schedule.Id}", schedule);
+}).RequireAuthorization();
+
+// POST complete PM
+app.MapPost("/pm-schedules/{id}/complete", async (OeeDbContext db, int id, CompletePmRequest req) =>
+{
+    var schedule = await db.PmSchedules.FindAsync(id);
+    if (schedule == null) return Results.NotFound();
+
+    var nextDue = DateTime.UtcNow.AddDays(schedule.FrequencyDays);
+
+    db.PmCompletions.Add(new PmCompletionEntity
+    {
+        PmScheduleId = id,
+        CompletedByUserId = req.CompletedByUserId,
+        CompletedAt = DateTime.UtcNow,
+        Notes = req.Notes,
+        NextDueAt = nextDue
+    });
+
+    schedule.LastDoneAt = DateTime.UtcNow;
+    schedule.NextDueAt = nextDue;
+    await db.SaveChangesAsync();
+    return Results.Ok(schedule);
+}).RequireAuthorization();
+
+// GET maintenance summary (MTBF, MTTR)
+app.MapGet("/maintenance/summary", async (OeeDbContext db) =>
+{
+    var closedBreakdowns = await db.Breakdowns
+        .Where(b => b.Status == "Closed" && b.DowntimeMinutes.HasValue)
+        .ToListAsync();
+
+    var totalBreakdowns = await db.Breakdowns.CountAsync();
+    var openBreakdowns = await db.Breakdowns.CountAsync(b => b.Status == "Open");
+    var avgMttr = closedBreakdowns.Any()
+        ? closedBreakdowns.Average(b => b.DowntimeMinutes!.Value)
+        : 0;
+
+    var overduepm = await db.PmSchedules
+        .CountAsync(p => p.NextDueAt < DateTime.UtcNow);
+
+    return Results.Ok(new
+    {
+        totalBreakdowns,
+        openBreakdowns,
+        avgMttr = Math.Round(avgMttr, 1),
+        overduepm,
+        closedBreakdowns = closedBreakdowns.Count
+    });
+}).RequireAuthorization();
 
 app.Run();
 
@@ -496,3 +639,6 @@ record ForgotPasswordRequest(string Email);
 record ResetPasswordRequest(string Email, string Code, string NewPassword);
 record UpdateRoleRequest(string Role);
 record MakeAdminRequest(string Email, string Secret);
+record CreateBreakdownRequest(int MachineId, int ReportedByUserId, int? AssignedToUserId, string Title, string? Description, string BreakdownType, string Priority);
+record UpdateBreakdownRequest(string Status, string? RootCause, string? CorrectiveAction, int? AssignedToUserId);
+record CompletePmRequest(int CompletedByUserId, string? Notes);
