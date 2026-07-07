@@ -639,6 +639,55 @@ app.MapPost("/auth/set-role", async (OeeDbContext db, SetRoleRequest req) =>
     await db.SaveChangesAsync();
     return Results.Ok($"Role updated to {req.Role}");
 });
+// GET all PDCA
+app.MapGet("/pdca", async (OeeDbContext db) =>
+    await db.Pdca.OrderByDescending(p => p.CreatedAt).ToListAsync()
+).RequireAuthorization();
+
+// POST create PDCA
+app.MapPost("/pdca", async (OeeDbContext db, PdcaEntity pdca) =>
+{
+    pdca.CreatedAt = DateTime.UtcNow;
+    pdca.UpdatedAt = DateTime.UtcNow;
+    db.Pdca.Add(pdca);
+    await db.SaveChangesAsync();
+    return Results.Created($"/pdca/{pdca.Id}", pdca);
+}).RequireAuthorization();
+
+// PUT update PDCA
+app.MapPut("/pdca/{id}", async (OeeDbContext db, int id, PdcaEntity updated) =>
+{
+    var pdca = await db.Pdca.FindAsync(id);
+    if (pdca == null) return Results.NotFound();
+    pdca.Plan = updated.Plan;
+    pdca.DoAction = updated.DoAction;
+    pdca.Check = updated.Check;
+    pdca.Act = updated.Act;
+    pdca.Status = updated.Status;
+    pdca.UpdatedAt = DateTime.UtcNow;
+    await db.SaveChangesAsync();
+    return Results.Ok(pdca);
+}).RequireAuthorization();
+
+app.MapGet("/setup-pdca", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        CREATE TABLE IF NOT EXISTS ""Pdca"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""MachineId"" INTEGER NOT NULL REFERENCES ""Machines""(""Id""),
+            ""Title"" VARCHAR(255) NOT NULL,
+            ""Plan"" TEXT,
+            ""DoAction"" TEXT,
+            ""Check"" TEXT,
+            ""Act"" TEXT,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Plan',
+            ""CreatedByUserId"" INTEGER REFERENCES ""Users""(""Id""),
+            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+    ");
+    return Results.Ok("PDCA table created");
+});
 
 app.Run();
 

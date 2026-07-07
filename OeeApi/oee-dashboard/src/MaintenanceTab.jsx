@@ -13,6 +13,11 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import WarningIcon from "@mui/icons-material/Warning";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import API_URL from "./config";
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid,
+    Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell
+} from "recharts";
+import PdcaTab from "./PdcaTab";
 
 const token = () => localStorage.getItem("oee_token");
 
@@ -237,6 +242,8 @@ export default function MaintenanceTab({ machines, onClose }) {
                     <Tab label={`Breakdowns (${breakdowns.length})`} />
                     <Tab label={`PM Schedule (${pmSchedules.length})`} />
                     <Tab label={`8D Reports (${eightDReports.length})`} />
+                    <Tab label="Statistics" />
+                    <Tab label="PDCA" />
                 </Tabs>
 
                 {/* BREAKDOWNS TAB */}
@@ -576,6 +583,123 @@ export default function MaintenanceTab({ machines, onClose }) {
                         </Button>
                     </DialogActions>
                 </Dialog>
+            )}
+            {/* STATISTICS TAB */}
+            {tab === 3 && (
+                <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+
+                    {/* Breakdown by Machine */}
+                    <Card elevation={2}>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+                                Breakdowns by Machine
+                            </Typography>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={(() => {
+                                    const counts = {};
+                                    breakdowns.forEach(b => {
+                                        const name = getMachineName(b.machineId);
+                                        counts[name] = (counts[name] || 0) + 1;
+                                    });
+                                    return Object.entries(counts).map(([name, count]) => ({ name, count }));
+                                })()}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="name" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar dataKey="count" fill="#d32f2f" name="Breakdowns" />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Breakdown by Type */}
+                    <Card elevation={2}>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+                                Breakdown by Type
+                            </Typography>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <PieChart>
+                                    <Pie
+                                        data={(() => {
+                                            const counts = {};
+                                            breakdowns.forEach(b => {
+                                                counts[b.breakdownType] = (counts[b.breakdownType] || 0) + 1;
+                                            });
+                                            return Object.entries(counts).map(([name, value]) => ({ name, value }));
+                                        })()}
+                                        cx="50%" cy="50%" outerRadius={100}
+                                        dataKey="value" label={({ name, value }) => `${name}: ${value}`}
+                                    >
+                                        {["#d32f2f", "#1976d2", "#ed6c02", "#2e7d32", "#7b1fa2", "#0288d1"].map((color, i) => (
+                                            <Cell key={i} fill={color} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Breakdown by Priority */}
+                    <Card elevation={2}>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+                                Breakdown by Priority
+                            </Typography>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <BarChart data={[
+                                    { priority: "Critical", count: breakdowns.filter(b => b.priority === "Critical").length },
+                                    { priority: "High", count: breakdowns.filter(b => b.priority === "High").length },
+                                    { priority: "Medium", count: breakdowns.filter(b => b.priority === "Medium").length },
+                                    { priority: "Low", count: breakdowns.filter(b => b.priority === "Low").length },
+                                ]}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="priority" />
+                                    <YAxis />
+                                    <Tooltip />
+                                    <Bar dataKey="count" name="Count">
+                                        {["#7b1fa2", "#d32f2f", "#ed6c02", "#2e7d32"].map((color, i) => (
+                                            <Cell key={i} fill={color} />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </CardContent>
+                    </Card>
+
+                    {/* Status summary */}
+                    <Card elevation={2}>
+                        <CardContent>
+                            <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
+                                Status Overview
+                            </Typography>
+                            <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                                {["Open", "In Progress", "Closed"].map(status => (
+                                    <Box key={status} sx={{ textAlign: "center", p: 2, border: "1px solid #e0e0e0", borderRadius: 2, minWidth: 120 }}>
+                                        <Typography variant="h3" sx={{
+                                            fontWeight: "bold",
+                                            color: status === "Open" ? "#d32f2f" : status === "In Progress" ? "#ed6c02" : "#2e7d32"
+                                        }}>
+                                            {breakdowns.filter(b => b.status === status).length}
+                                        </Typography>
+                                        <Typography variant="body2" color="text.secondary">{status}</Typography>
+                                    </Box>
+                                ))}
+                            </Box>
+                        </CardContent>
+                    </Card>
+                </Box>
+            )}
+            {/* PDCA TAB */}
+            {tab === 4 && (
+                <PdcaTab
+                    machines={machines}
+                    token={token}
+                    userInfo={userInfo}
+                />
             )}
         </Box>
     );
