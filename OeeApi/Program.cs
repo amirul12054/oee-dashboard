@@ -629,6 +629,17 @@ app.MapGet("/maintenance/summary", async (OeeDbContext db) =>
     });
 }).RequireAuthorization();
 
+// Update user role directly - temporary
+app.MapPost("/auth/set-role", async (OeeDbContext db, SetRoleRequest req) =>
+{
+    if (req.Secret != "OeeSetup2026") return Results.Unauthorized();
+    var user = await db.Users.FirstOrDefaultAsync(u => u.Email == req.Email);
+    if (user == null) return Results.NotFound();
+    user.Role = req.Role;
+    await db.SaveChangesAsync();
+    return Results.Ok($"Role updated to {req.Role}");
+});
+
 app.Run();
 
 record RegisterRequest(string Email, string Password);
@@ -643,3 +654,4 @@ record MakeAdminRequest(string Email, string Secret);
 record CreateBreakdownRequest(int MachineId, int ReportedByUserId, int? AssignedToUserId, string Title, string? Description, string BreakdownType, string Priority);
 record UpdateBreakdownRequest(string Status, string? RootCause, string? CorrectiveAction, int? AssignedToUserId);
 record CompletePmRequest(int CompletedByUserId, string? Notes);
+record SetRoleRequest(string Email, string Secret, string Role);
