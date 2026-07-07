@@ -252,7 +252,8 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                         <InputLabel>Role</InputLabel>
                         <Select value={newRole} label="Role"
                             onChange={(e) => setNewRole(e.target.value)}>
-                            <MenuItem value="admin">Admin</MenuItem>
+                            <MenuItem value="engineer">Engineer</MenuItem>
+                            <MenuItem value="technician">Technician</MenuItem>
                             <MenuItem value="operator">Operator</MenuItem>
                         </Select>
                     </FormControl>

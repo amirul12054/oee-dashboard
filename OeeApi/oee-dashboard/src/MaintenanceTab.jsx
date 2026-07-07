@@ -273,12 +273,13 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell>{b.downtimeMinutes ? `${b.downtimeMinutes} min` : "Ongoing"}</TableCell>
                                             <TableCell>{new Date(b.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
-                                                {b.status === "Open" && (
-                                                    <Button size="small" variant="outlined"
-                                                        onClick={() => { setSelectedBreakdown(b); setCloseData({ status: "Closed", rootCause: "", correctiveAction: "", assignedToUserId: b.assignedToUserId || "" }); setShowCloseBreakdown(true); }}>
-                                                        Update
-                                                    </Button>
-                                                )}
+                                                {(b.status === "Open" || b.status === "In Progress") &&
+                                                    (userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                        <Button size="small" variant="outlined"
+                                                            onClick={() => { setSelectedBreakdown(b); setCloseData({ status: b.status, rootCause: "", correctiveAction: "", assignedToUserId: b.assignedToUserId || "" }); setShowCloseBreakdown(true); }}>
+                                                            Update
+                                                        </Button>
+                                                    )}
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -335,10 +336,12 @@ export default function MaintenanceTab({ machines, onClose }) {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Button size="small" variant="contained" color="success"
-                                                    onClick={() => handleCompletePm(p.id)}>
-                                                    Done
-                                                </Button>
+                                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                    <Button size="small" variant="contained" color="success"
+                                                        onClick={() => handleCompletePm(p.id)}>
+                                                        Done
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                     ))}

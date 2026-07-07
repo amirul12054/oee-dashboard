@@ -226,13 +226,13 @@ export default function App() {
                 Role: {userInfo.role} · Last updated: {lastUpdated.toLocaleTimeString()}
               </Typography>
             </Box>
-            {userInfo.role === "admin" && (
+            {userInfo.role === "engineer" && (
               <Button variant="contained" size="small"
                 onClick={() => setShowImport(true)}>
                 Import CSV
               </Button>
             )}
-            {userInfo.role === "admin" && (
+            {userInfo.role === "engineer" && (
               <Button variant="outlined" size="small"
                 onClick={() => setShowAdmin(true)}>
                 Admin Panel
@@ -301,7 +301,6 @@ export default function App() {
                 <TableCell sx={{ color: "white", fontWeight: "bold" }}>Performance</TableCell>
                 <TableCell sx={{ color: "white", fontWeight: "bold" }}>Quality</TableCell>
                 <TableCell sx={{ color: "white", fontWeight: "bold" }}>OEE</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Edit</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -334,13 +333,6 @@ export default function App() {
                         color={getOEEColor(quality)} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell><OEEGauge value={oee} /></TableCell>
-                    <TableCell>
-                      {userInfo.role === "admin" && (
-                        <IconButton onClick={() => handleEditOpen(machine)} color="primary">
-                          <EditIcon />
-                        </IconButton>
-                      )}
-                    </TableCell>
                   </TableRow>
                 );
               })}
