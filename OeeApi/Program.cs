@@ -425,6 +425,66 @@ app.MapPost("/auth/make-admin", async (OeeDbContext db, MakeAdminRequest req) =>
     return Results.Ok("Role updated to admin");
 });
 
+app.MapGet("/setup-maintenance", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        CREATE TABLE IF NOT EXISTS ""Breakdowns"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""MachineId"" INTEGER NOT NULL REFERENCES ""Machines""(""Id""),
+            ""ReportedByUserId"" INTEGER NOT NULL REFERENCES ""Users""(""Id""),
+            ""AssignedToUserId"" INTEGER REFERENCES ""Users""(""Id""),
+            ""Title"" VARCHAR(255) NOT NULL,
+            ""Description"" TEXT,
+            ""BreakdownType"" VARCHAR(50) NOT NULL DEFAULT 'Unplanned',
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Open',
+            ""Priority"" VARCHAR(50) NOT NULL DEFAULT 'Medium',
+            ""StartTime"" TIMESTAMP WITH TIME ZONE NOT NULL,
+            ""EndTime"" TIMESTAMP WITH TIME ZONE,
+            ""DowntimeMinutes"" INTEGER,
+            ""RootCause"" TEXT,
+            ""CorrectiveAction"" TEXT,
+            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ""EightDReports"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""BreakdownId"" INTEGER NOT NULL REFERENCES ""Breakdowns""(""Id""),
+            ""D1_Team"" TEXT,
+            ""D2_Problem"" TEXT,
+            ""D3_ContainmentAction"" TEXT,
+            ""D4_RootCause"" TEXT,
+            ""D5_CorrectiveAction"" TEXT,
+            ""D6_Implementation"" TEXT,
+            ""D7_Prevention"" TEXT,
+            ""D8_Closure"" TEXT,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'Open',
+            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ""PmSchedules"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""MachineId"" INTEGER NOT NULL REFERENCES ""Machines""(""Id""),
+            ""Title"" VARCHAR(255) NOT NULL,
+            ""Description"" TEXT,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'PM',
+            ""FrequencyDays"" INTEGER NOT NULL DEFAULT 30,
+            ""LastDoneAt"" TIMESTAMP WITH TIME ZONE,
+            ""NextDueAt"" TIMESTAMP WITH TIME ZONE NOT NULL,
+            ""AssignedToUserId"" INTEGER REFERENCES ""Users""(""Id""),
+            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ""PmCompletions"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""PmScheduleId"" INTEGER NOT NULL REFERENCES ""PmSchedules""(""Id""),
+            ""CompletedByUserId"" INTEGER NOT NULL REFERENCES ""Users""(""Id""),
+            ""CompletedAt"" TIMESTAMP WITH TIME ZONE NOT NULL,
+            ""Notes"" TEXT,
+            ""NextDueAt"" TIMESTAMP WITH TIME ZONE NOT NULL
+        );
+    ");
+    return Results.Ok("Maintenance tables created");
+});
+
 app.Run();
 
 record RegisterRequest(string Email, string Password);
