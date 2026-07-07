@@ -191,7 +191,6 @@ export default function App() {
       onClose={() => { setShowMaintenance(false); fetchMachines(); }}
     />
   );
-
   if (loading) return (
     <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
       <CircularProgress />
