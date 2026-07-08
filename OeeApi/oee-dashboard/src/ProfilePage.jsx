@@ -21,7 +21,7 @@ function parseToken(t) {
 }
 
 export default function ProfilePage({ onClose }) {
-    const userInfo = parseToken(token());
+    const userInfo = useMemo(() => parseToken(token()), []);
     const [phone, setPhone] = useState("");
     const [department, setDepartment] = useState("");
     const [error, setError] = useState("");
@@ -29,7 +29,9 @@ export default function ProfilePage({ onClose }) {
 
     useEffect(() => {
         fetch(`${API_URL}/users`, {
-            headers: { Authorization: `Bearer ${token()}` }
+            headers: {
+                Authorization: `Bearer ${token()}`
+            }
         })
             .then(r => r.json())
             .then(users => {
@@ -39,7 +41,7 @@ export default function ProfilePage({ onClose }) {
                     setDepartment(me.department || "");
                 }
             });
-    }, []);
+    }, [userInfo.userId]);
 
     const handleSave = async () => {
         const res = await fetch(`${API_URL}/users/profile`, {
