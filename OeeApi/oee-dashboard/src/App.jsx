@@ -16,6 +16,7 @@ import OeeCharts from "./OeeCharts";
 import AdminPanel from "./AdminPanel";
 import API_URL from "./config";
 import MaintenanceTab from "./MaintenanceTab";
+import ProfilePage from "./ProfilePage";
 
 
 function parseToken(token) {
@@ -80,6 +81,10 @@ export default function App() {
   const [showImport, setShowImport] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  if (showProfile) return (
+    <ProfilePage onClose={() => setShowProfile(false)} />
+  );
 
   const fetchMachines = () => {
     const storedToken = localStorage.getItem("oee_token");
@@ -185,8 +190,8 @@ export default function App() {
             </Box>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Box sx={{ textAlign: "right" }}>
-              <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+            <Box sx={{ textAlign: "right", cursor: "pointer" }} onClick={() => setShowProfile(true)}>
+              <Typography variant="body2" sx={{ fontWeight: "bold", color: "#1976d2" }}>
                 {userInfo.email}
               </Typography>
               <Typography variant="caption" color="text.secondary">

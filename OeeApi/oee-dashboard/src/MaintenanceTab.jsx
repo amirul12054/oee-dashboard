@@ -52,6 +52,11 @@ export default function MaintenanceTab({ machines, onClose }) {
         assignedToUserId: ""
     });
 
+    const [showAssignees, setShowAssignees] = useState(false);
+    const [selectedBreakdownForAssign, setSelectedBreakdownForAssign] = useState(null);
+    const [breakdownAssignees, setBreakdownAssignees] = useState([]);
+    const [newAssignee, setNewAssignee] = useState({ userId: "", role: "Technician" });
+
     // Close breakdown dialog
     const [showCloseBreakdown, setShowCloseBreakdown] = useState(false);
     const [selectedBreakdown, setSelectedBreakdown] = useState(null);
@@ -77,13 +82,14 @@ export default function MaintenanceTab({ machines, onClose }) {
             fetch(`${API_URL}/pm-schedules`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/8d-reports`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/maintenance/summary`, { headers }).then(r => r.json()),
-            fetch(`${API_URL}/admin/users`, { headers }).then(r => r.json()),
+            fetch(`${API_URL}/users`, { headers }).then(r => r.json()),
         ]);
         setBreakdowns(Array.isArray(b) ? b : []);
         setPmSchedules(Array.isArray(p) ? p : []);
         setEightDReports(Array.isArray(r) ? r : []);
         setSummary(s);
         setUsers(Array.isArray(u) ? u : []);
+
     };
 
     useEffect(() => { fetchAll(); }, []);
@@ -98,7 +104,6 @@ export default function MaintenanceTab({ machines, onClose }) {
             body: JSON.stringify({
                 machineId: parseInt(newBreakdown.machineId),
                 reportedByUserId: userInfo.userId,
-                assignedToUserId: newBreakdown.assignedToUserId ? parseInt(newBreakdown.assignedToUserId) : null,
                 title: newBreakdown.title,
                 description: newBreakdown.description,
                 breakdownType: newBreakdown.breakdownType,
@@ -181,6 +186,41 @@ export default function MaintenanceTab({ machines, onClose }) {
     const priorityColor = (p) => p === "High" ? "error" : p === "Medium" ? "warning" : "success";
     const statusColor = (s) => s === "Open" ? "error" : s === "In Progress" ? "warning" : "success";
     const isOverdue = (date) => new Date(date) < new Date();
+
+    const fetchAssignees = async (breakdownId) => {
+        const res = await fetch(`${API_URL}/breakdowns/${breakdownId}/assignees`, {
+            headers: { Authorization: `Bearer ${token()}` }
+        });
+        if (res.ok) setBreakdownAssignees(await res.json());
+    };
+
+    const handleAddAssignee = async () => {
+        if (!newAssignee.userId) { setError("Please select a user"); return; }
+        const res = await fetch(`${API_URL}/breakdowns/${selectedBreakdownForAssign.id}/assignees`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+            body: JSON.stringify({ userId: parseInt(newAssignee.userId), role: newAssignee.role })
+        });
+        if (res.ok) {
+            setSuccess("Assignee added and alerted by email");
+            setNewAssignee({ userId: "", role: "Technician" });
+            fetchAssignees(selectedBreakdownForAssign.id);
+        } else {
+            const msg = await res.text();
+            setError(msg || "Failed to add assignee");
+        }
+    };
+
+    const handleRemoveAssignee = async (breakdownId, userId) => {
+        const res = await fetch(`${API_URL}/breakdowns/${breakdownId}/assignees/${userId}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token()}` }
+        });
+        if (res.ok) {
+            setSuccess("Assignee removed");
+            fetchAssignees(breakdownId);
+        }
+    };
 
     return (
         <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", py: 4 }}>
@@ -288,11 +328,19 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell>
                                                 {(b.status === "Open" || b.status === "In Progress") &&
                                                     (userInfo.role === "technician" || userInfo.role === "engineer") && (
-                                                        <Button size="small" variant="outlined"
-                                                            onClick={() => { setSelectedBreakdown(b); setCloseData({ status: b.status, rootCause: "", correctiveAction: "", assignedToUserId: b.assignedToUserId || "" }); setShowCloseBreakdown(true); }}>
+                                                        <Button size="small" variant="outlined" sx={{ mr: 1 }}
+                                                            onClick={() => { setSelectedBreakdown(b); setCloseData({ status: "Closed", rootCause: "", correctiveAction: "", assignedToUserId: b.assignedToUserId || "" }); setShowCloseBreakdown(true); }}>
                                                             Update
                                                         </Button>
                                                     )}
+                                                <Button size="small" variant="outlined" color="secondary"
+                                                    onClick={() => {
+                                                        setSelectedBreakdownForAssign(b);
+                                                        fetchAssignees(b.id);
+                                                        setShowAssignees(true);
+                                                    }}>
+                                                    Assignees
+                                                </Button>
                                             </TableCell>
                                         </TableRow>
                                     ))}
@@ -450,14 +498,6 @@ export default function MaintenanceTab({ machines, onClose }) {
                                 <MenuItem value="Medium">Medium</MenuItem>
                                 <MenuItem value="High">High</MenuItem>
                                 <MenuItem value="Critical">Critical</MenuItem>
-                            </Select>
-                        </FormControl>
-                        <FormControl fullWidth>
-                            <InputLabel>Assign To (optional)</InputLabel>
-                            <Select value={newBreakdown.assignedToUserId} label="Assign To (optional)"
-                                onChange={(e) => setNewBreakdown({ ...newBreakdown, assignedToUserId: e.target.value })}>
-                                <MenuItem value="">Nobody</MenuItem>
-                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.email}</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Box>
@@ -707,6 +747,84 @@ export default function MaintenanceTab({ machines, onClose }) {
                     userInfo={userInfo}
                 />
             )}
+            {/* Assignees Dialog */}
+            <Dialog open={showAssignees} onClose={() => setShowAssignees(false)} maxWidth="sm" fullWidth>
+                <DialogTitle sx={{ backgroundColor: "#1565c0", color: "white" }}>
+                    Assignees — {selectedBreakdownForAssign?.title}
+                </DialogTitle>
+                <DialogContent>
+                    <Box sx={{ mt: 2 }}>
+
+                        {/* Current assignees */}
+                        <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
+                            Current Assignees
+                        </Typography>
+                        {breakdownAssignees.length === 0 && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                No assignees yet
+                            </Typography>
+                        )}
+                        {breakdownAssignees.map((a) => (
+                            <Box key={a.id} sx={{
+                                display: "flex", alignItems: "center", justifyContent: "space-between",
+                                p: 1.5, mb: 1, border: "1px solid #e0e0e0", borderRadius: 2
+                            }}>
+                                <Box>
+                                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>{a.email}</Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        📱 {a.phoneNumber || "No phone"} · {a.department || "No dept"} · Role: {a.role}
+                                    </Typography>
+                                </Box>
+                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                    <Button size="small" color="error"
+                                        onClick={() => handleRemoveAssignee(selectedBreakdownForAssign.id, a.userId)}>
+                                        Remove
+                                    </Button>
+                                )}
+                            </Box>
+                        ))}
+
+                        {/* Add new assignee */}
+                        {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                            <Box sx={{ mt: 3 }}>
+                                <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
+                                    Add Assignee
+                                </Typography>
+                                <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Select User</InputLabel>
+                                        <Select value={newAssignee.userId} label="Select User"
+                                            onChange={(e) => setNewAssignee({ ...newAssignee, userId: e.target.value })}>
+                                            {users
+                                                .filter(u => u.role === "technician" || u.role === "engineer")
+                                                .map(u => (
+                                                    <MenuItem key={u.id} value={u.id}>
+                                                        {u.email} ({u.role}) {u.phoneNumber ? `· 📱 ${u.phoneNumber}` : ""}
+                                                    </MenuItem>
+                                                ))}
+                                        </Select>
+                                    </FormControl>
+                                    <FormControl fullWidth>
+                                        <InputLabel>Assignment Role</InputLabel>
+                                        <Select value={newAssignee.role} label="Assignment Role"
+                                            onChange={(e) => setNewAssignee({ ...newAssignee, role: e.target.value })}>
+                                            <MenuItem value="Technician">Technician (Primary)</MenuItem>
+                                            <MenuItem value="Engineer">Engineer (Backup)</MenuItem>
+                                            <MenuItem value="Supervisor">Supervisor</MenuItem>
+                                        </Select>
+                                    </FormControl>
+                                    <Button variant="contained" onClick={handleAddAssignee}>
+                                        Add & Send Alert Email
+                                    </Button>
+                                </Box>
+                            </Box>
+                        )}
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowAssignees(false)}>Close</Button>
+                </DialogActions>
+            </Dialog>
         </Box>
     );
 }
