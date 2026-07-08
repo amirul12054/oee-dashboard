@@ -82,9 +82,7 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  if (showProfile) return (
-    <ProfilePage onClose={() => setShowProfile(false)} />
-  );
+
 
   const fetchMachines = () => {
     const storedToken = localStorage.getItem("oee_token");
@@ -168,6 +166,9 @@ export default function App() {
       <CircularProgress />
     </Box>
 
+  );
+  if (showProfile) return (
+    <ProfilePage onClose={() => setShowProfile(false)} />
   );
 
   const averageOEE =
