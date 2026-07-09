@@ -918,6 +918,16 @@ app.MapGet("/users", async (OeeDbContext db) =>
         .ToListAsync();
     return Results.Ok(users);
 }).RequireAuthorization();
+
+app.MapGet("/setup-username", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(100);
+        UPDATE ""Users"" SET ""Username"" = SPLIT_PART(""Email"", '@', 1) WHERE ""Username"" IS NULL;
+    ");
+    return Results.Ok("Username column added");
+});
+
 app.Run();
 
 record RegisterRequest(string Email, string Password);
