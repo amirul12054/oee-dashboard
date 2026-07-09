@@ -78,21 +78,18 @@ export default function MaintenanceTab({ machines, onClose }) {
 
     const fetchAll = async () => {
         const headers = { Authorization: `Bearer ${token()}` };
-        const [b, p, r, s, u, c] = await Promise.all([
+        const [b, p, r, s, c] = await Promise.all([
             fetch(`${API_URL}/breakdowns`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/pm-schedules`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/8d-reports`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/maintenance/summary`, { headers }).then(r => r.json()),
-            fetch(`${API_URL}/users`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/contacts`, { headers }).then(r => r.json()),
         ]);
         setBreakdowns(Array.isArray(b) ? b : []);
         setPmSchedules(Array.isArray(p) ? p : []);
         setEightDReports(Array.isArray(r) ? r : []);
         setSummary(s);
-        setUsers(Array.isArray(u) ? u : []);
-        setContacts(Array.isArray(c) ? c : []);
-
+        setUsers(Array.isArray(c) ? c : []);
     };
 
     useEffect(() => { fetchAll(); }, []);
@@ -773,12 +770,14 @@ export default function MaintenanceTab({ machines, onClose }) {
                                 p: 1.5, mb: 1, border: "1px solid #e0e0e0", borderRadius: 2
                             }}>
                                 <Box>
-                                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>{a.name}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                        {a.name} <Chip label={a.role} size="small" sx={{ ml: 1 }} />
+                                    </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        📱 {a.phoneNumber || "No phone"} · {a.department || "No dept"} · Role: {a.role}
+                                        📱 {a.phoneNumber || "No phone"} · {a.department || "No dept"}
                                     </Typography>
                                 </Box>
-                                {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
+                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
                                     <Button size="small" color="error"
                                         onClick={() => handleRemoveAssignee(selectedBreakdownForAssign.id, a.userId)}>
                                         Remove
@@ -795,17 +794,19 @@ export default function MaintenanceTab({ machines, onClose }) {
                                 </Typography>
                                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                     <FormControl fullWidth>
-                                        <InputLabel>Select Name</InputLabel>
-                                        <Select value={newAssignee.userId} label="Select Name"
+                                        <InputLabel>Select Person</InputLabel>
+                                        <Select value={newAssignee.userId} label="Select Person"
                                             onChange={(e) => setNewAssignee({ ...newAssignee, userId: e.target.value })}>
-                                            {contacts.length === 0 && (
-                                                <MenuItem disabled value="">
-                                                    No name cards yet — ask an engineer/admin to add one
+                                            <MenuItem disabled>-- Technicians --</MenuItem>
+                                            {users.filter(u => u.role === "Technician").map(u => (
+                                                <MenuItem key={u.id} value={u.id}>
+                                                    🔧 {u.name} {u.phoneNumber ? `· 📱 ${u.phoneNumber}` : ""}
                                                 </MenuItem>
-                                            )}
-                                            {contacts.map(c => (
-                                                <MenuItem key={c.id} value={c.id}>
-                                                    {c.name} ({c.role}) {c.phoneNumber ? `· 📱 ${c.phoneNumber}` : ""}
+                                            ))}
+                                            <MenuItem disabled>-- Engineers --</MenuItem>
+                                            {users.filter(u => u.role === "Engineer").map(u => (
+                                                <MenuItem key={u.id} value={u.id}>
+                                                    👷 {u.name} {u.phoneNumber ? `· 📱 ${u.phoneNumber}` : ""}
                                                 </MenuItem>
                                             ))}
                                         </Select>

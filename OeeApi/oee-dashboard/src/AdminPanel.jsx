@@ -21,6 +21,11 @@ export default function AdminPanel({ onClose, currentUsername }) {
     const [machines, setMachines] = useState([]);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+    const [contacts, setContacts] = useState([]);
+    const [showAddContact, setShowAddContact] = useState(false);
+    const [newContact, setNewContact] = useState({
+        name: "", role: "Technician", phoneNumber: "", department: ""
+    });
 
     // Add machine dialog
     const [showAddMachine, setShowAddMachine] = useState(false);
@@ -52,10 +57,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
             .catch(() => setError("Failed to load machines"));
     };
 
-    useEffect(() => {
-        fetchUsers();
-        fetchMachines();
-    }, []);
+    useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); }, []);
 
     const handleUpdateRole = async () => {
         const res = await fetch(`${API}/admin/users/${editUser.id}/role`, {
@@ -129,6 +131,36 @@ export default function AdminPanel({ onClose, currentUsername }) {
         } else {
             setError("Failed to delete machine");
         }
+    };
+    const fetchContacts = () => {
+        fetch(`${API_URL}/contacts`, { headers: { Authorization: `Bearer ${token()}` } })
+            .then(r => r.json()).then(setContacts)
+            .catch(() => setError("Failed to load contacts"));
+    };
+
+    const handleAddContact = async () => {
+        if (!newContact.name) { setError("Name is required"); return; }
+        const res = await fetch(`${API_URL}/contacts`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+            body: JSON.stringify(newContact)
+        });
+        if (res.ok) {
+            setSuccess(`${newContact.name} added to contacts`);
+            setShowAddContact(false);
+            setNewContact({ name: "", role: "Technician", phoneNumber: "", department: "" });
+            fetchContacts();
+        } else setError("Failed to add contact");
+    };
+
+    const handleDeleteContact = async (contact) => {
+        if (!window.confirm(`Delete ${contact.name} from contacts?`)) return;
+        const res = await fetch(`${API_URL}/contacts/${contact.id}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token()}` }
+        });
+        if (res.ok) { setSuccess("Contact deleted"); fetchContacts(); }
+        else setError("Failed to delete contact");
     };
 
     return (
@@ -243,6 +275,60 @@ export default function AdminPanel({ onClose, currentUsername }) {
                     </TableContainer>
                 </CardContent>
             </Card>
+            {/* Contacts Directory */}
+            <Card elevation={2} sx={{ mt: 4 }}>
+                <CardContent>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
+                            Contact Directory (for breakdown assignments)
+                        </Typography>
+                        <Button variant="contained" startIcon={<AddIcon />}
+                            onClick={() => setShowAddContact(true)}>
+                            Add Contact
+                        </Button>
+                    </Box>
+                    <TableContainer>
+                        <Table size="small">
+                            <TableHead>
+                                <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Department</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
+                                </TableRow>
+                            </TableHead>
+                            <TableBody>
+                                {contacts.map((c) => (
+                                    <TableRow key={c.id} hover>
+                                        <TableCell sx={{ fontWeight: "bold" }}>{c.name}</TableCell>
+                                        <TableCell>
+                                            <Chip label={c.role}
+                                                color={c.role === "Engineer" ? "primary" : "warning"}
+                                                size="small" />
+                                        </TableCell>
+                                        <TableCell>{c.phoneNumber || "-"}</TableCell>
+                                        <TableCell>{c.department || "-"}</TableCell>
+                                        <TableCell>
+                                            <IconButton size="small" color="error"
+                                                onClick={() => handleDeleteContact(c)}>
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                                {contacts.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={5} align="center">
+                                            No contacts yet. Add technicians and engineers here.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </TableContainer>
+                </CardContent>
+            </Card>
 
             {/* Edit Role Dialog */}
             <Dialog open={!!editUser} onClose={() => setEditUser(null)}>
@@ -262,6 +348,33 @@ export default function AdminPanel({ onClose, currentUsername }) {
                 <DialogActions>
                     <Button onClick={() => setEditUser(null)}>Cancel</Button>
                     <Button onClick={handleUpdateRole} variant="contained">Save</Button>
+                </DialogActions>
+            </Dialog>
+            <Dialog open={showAddContact} onClose={() => setShowAddContact(false)} maxWidth="sm" fullWidth>
+                <DialogTitle>Add Contact</DialogTitle>
+                <DialogContent>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+                        <TextField label="Full Name *" value={newContact.name}
+                            onChange={(e) => setNewContact({ ...newContact, name: e.target.value })} fullWidth />
+                        <FormControl fullWidth>
+                            <InputLabel>Role</InputLabel>
+                            <Select value={newContact.role} label="Role"
+                                onChange={(e) => setNewContact({ ...newContact, role: e.target.value })}>
+                                <MenuItem value="Technician">Technician</MenuItem>
+                                <MenuItem value="Engineer">Engineer</MenuItem>
+                            </Select>
+                        </FormControl>
+                        <TextField label="Phone Number" value={newContact.phoneNumber}
+                            onChange={(e) => setNewContact({ ...newContact, phoneNumber: e.target.value })}
+                            placeholder="+60123456789" fullWidth />
+                        <TextField label="Department" value={newContact.department}
+                            onChange={(e) => setNewContact({ ...newContact, department: e.target.value })}
+                            placeholder="e.g. Maintenance" fullWidth />
+                    </Box>
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setShowAddContact(false)}>Cancel</Button>
+                    <Button onClick={handleAddContact} variant="contained">Add Contact</Button>
                 </DialogActions>
             </Dialog>
 

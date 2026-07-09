@@ -1,12 +1,12 @@
 import { useState } from "react";
 import {
     Box, Button, Card, CardContent,
-    TextField, Typography, Alert, Divider
+    TextField, Typography, Alert
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
 import API_URL from "./config";
 
-export default function Login({ onLogin, onRegister, onForgotPassword }) {
+export default function Login({ onLogin }) {
     const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -22,7 +22,7 @@ export default function Login({ onLogin, onRegister, onForgotPassword }) {
                 body: JSON.stringify({ username, password }),
             });
             if (!res.ok) {
-                setError("Invalid email or password");
+                setError("Invalid username or password");
                 setLoading(false);
                 return;
             }
@@ -58,20 +58,15 @@ export default function Login({ onLogin, onRegister, onForgotPassword }) {
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                             fullWidth />
-                        <Button variant="text" size="small"
-                            onClick={onForgotPassword}
-                            sx={{ alignSelf: "flex-end", mt: -1 }}>
-                            Forgot password?
-                        </Button>
                         <Button variant="contained" size="large"
                             onClick={handleLogin} disabled={loading} fullWidth>
                             {loading ? "Signing in..." : "Sign In"}
                         </Button>
-                        <Divider />
-                        <Button variant="outlined" onClick={onRegister} fullWidth>
-                            Create new account
-                        </Button>
                     </Box>
+                    <Typography variant="caption" color="text.secondary"
+                        sx={{ mt: 2, display: "block", textAlign: "center" }}>
+                        Contact your engineer if you need access
+                    </Typography>
                 </CardContent>
             </Card>
         </Box>

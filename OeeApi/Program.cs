@@ -638,22 +638,6 @@ if (app.Environment.IsDevelopment())
     });
 }
 
-app.MapGet("/fix-passwords", async (OeeDbContext db) =>
-{
-    var accounts = new[] { "admin", "engineer", "technician", "operator" };
-    foreach (var username in accounts)
-    {
-        var user = await db.Users.FirstOrDefaultAsync(u => u.Username == username);
-        if (user != null)
-        {
-            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(username);
-            user.Role = username == "admin" || username == "engineer" ? "engineer" :
-                        username == "technician" ? "technician" : "operator";
-        }
-    }
-    await db.SaveChangesAsync();
-    return Results.Ok("All passwords fixed and hashed properly");
-});
 
 app.Run();
 

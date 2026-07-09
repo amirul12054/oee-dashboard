@@ -24,11 +24,12 @@ function parseToken(token) {
     const base64 = token.split(".")[1];
     const decoded = JSON.parse(atob(base64));
     return {
+      userId: parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]),
       username: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
       role: decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]
     };
   } catch {
-    return { username: "", role: "" };
+    return { userId: 0, username: "", role: "" };
   }
 }
 
@@ -124,19 +125,7 @@ export default function App() {
   };
 
   if (!token) {
-    if (page === "register") {
-      return <Register onBackToLogin={() => setPage("login")} />;
-    }
-    if (page === "forgot") {
-      return <ForgotPassword onBackToLogin={() => setPage("login")} />;
-    }
-    return (
-      <Login
-        onLogin={handleLogin}
-        onRegister={() => setPage("register")}
-        onForgotPassword={() => setPage("forgot")}
-      />
-    );
+    return <Login onLogin={handleLogin} />;
   }
   if (showImport) return (
     <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", py: 4 }}>
