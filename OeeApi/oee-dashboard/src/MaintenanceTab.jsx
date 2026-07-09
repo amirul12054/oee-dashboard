@@ -527,7 +527,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                             <Select value={closeData.assignedToUserId} label="Assign To"
                                 onChange={(e) => setCloseData({ ...closeData, assignedToUserId: e.target.value })}>
                                 <MenuItem value="">Nobody</MenuItem>
-                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.username} ({u.role})</MenuItem>)}
+                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.name} ({u.role})</MenuItem>)}
                             </Select>
                         </FormControl>
                         <TextField label="Root Cause" multiline rows={2} value={closeData.rootCause}
@@ -577,7 +577,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                             <Select value={newPm.assignedToUserId} label="Assign To"
                                 onChange={(e) => setNewPm({ ...newPm, assignedToUserId: e.target.value })}>
                                 <MenuItem value="">Nobody</MenuItem>
-                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.username} ({u.role})</MenuItem>)}
+                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.name} ({u.role})</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Box>
