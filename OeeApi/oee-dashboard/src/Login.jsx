@@ -7,7 +7,7 @@ import FactoryIcon from "@mui/icons-material/Factory";
 import API_URL from "./config";
 
 export default function Login({ onLogin, onRegister, onForgotPassword }) {
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
@@ -19,7 +19,7 @@ export default function Login({ onLogin, onRegister, onForgotPassword }) {
             const res = await fetch(`${API_URL}/auth/login`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email, password }),
+                body: JSON.stringify({ username, password }),
             });
             if (!res.ok) {
                 setError("Invalid email or password");
@@ -52,8 +52,8 @@ export default function Login({ onLogin, onRegister, onForgotPassword }) {
                     {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <TextField label="Email" type="email" value={email}
-                            onChange={(e) => setEmail(e.target.value)} fullWidth />
+                        <TextField label="Username" value={username}
+                            onChange={(e) => setUsername(e.target.value)} fullWidth />
                         <TextField label="Password" type="password" value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && handleLogin()}

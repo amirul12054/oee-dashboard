@@ -24,11 +24,11 @@ function parseToken(token) {
     const base64 = token.split(".")[1];
     const decoded = JSON.parse(atob(base64));
     return {
-      email: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"],
+      username: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
       role: decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]
     };
   } catch {
-    return { email: "", role: "" };
+    return { username: "", role: "" };
   }
 }
 
@@ -150,7 +150,7 @@ export default function App() {
       <Container maxWidth="lg">
         <AdminPanel
           onClose={() => { setShowAdmin(false); fetchMachines(); }}
-          currentUserEmail={userInfo.email}
+          currentUsername={userInfo.username}
         />
       </Container>
     </Box>
@@ -193,19 +193,19 @@ export default function App() {
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box sx={{ textAlign: "right", cursor: "pointer" }} onClick={() => setShowProfile(true)}>
               <Typography variant="body2" sx={{ fontWeight: "bold", color: "#1976d2" }}>
-                {userInfo.email}
+                {userInfo.username}
               </Typography>
               <Typography variant="caption" color="text.secondary">
                 Role: {userInfo.role} · Last updated: {lastUpdated.toLocaleTimeString()}
               </Typography>
             </Box>
-            {userInfo.role === "engineer" && (
+            {(userInfo.role === "engineer" || userInfo.role === "admin") && (
               <Button variant="contained" size="small"
                 onClick={() => setShowImport(true)}>
                 Import CSV
               </Button>
             )}
-            {userInfo.role === "engineer" && (
+            {(userInfo.role === "engineer" || userInfo.role === "admin") && (
               <Button variant="outlined" size="small"
                 onClick={() => setShowAdmin(true)}>
                 Admin Panel

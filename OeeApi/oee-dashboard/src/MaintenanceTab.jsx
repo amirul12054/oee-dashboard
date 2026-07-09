@@ -27,10 +27,10 @@ function parseToken(t) {
         const decoded = JSON.parse(atob(base64));
         return {
             userId: parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]),
-            email: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"],
+            username: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
             role: decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]
         };
-    } catch { return { userId: 0, email: "", role: "" }; }
+    } catch { return { userId: 0, username: "", role: "" }; }
 }
 
 export default function MaintenanceTab({ machines, onClose }) {
@@ -40,6 +40,7 @@ export default function MaintenanceTab({ machines, onClose }) {
     const [eightDReports, setEightDReports] = useState([]);
     const [summary, setSummary] = useState(null);
     const [users, setUsers] = useState([]);
+    const [contacts, setContacts] = useState([]);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const userInfo = parseToken(token());
@@ -77,18 +78,20 @@ export default function MaintenanceTab({ machines, onClose }) {
 
     const fetchAll = async () => {
         const headers = { Authorization: `Bearer ${token()}` };
-        const [b, p, r, s, u] = await Promise.all([
+        const [b, p, r, s, u, c] = await Promise.all([
             fetch(`${API_URL}/breakdowns`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/pm-schedules`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/8d-reports`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/maintenance/summary`, { headers }).then(r => r.json()),
             fetch(`${API_URL}/users`, { headers }).then(r => r.json()),
+            fetch(`${API_URL}/contacts`, { headers }).then(r => r.json()),
         ]);
         setBreakdowns(Array.isArray(b) ? b : []);
         setPmSchedules(Array.isArray(p) ? p : []);
         setEightDReports(Array.isArray(r) ? r : []);
         setSummary(s);
         setUsers(Array.isArray(u) ? u : []);
+        setContacts(Array.isArray(c) ? c : []);
 
     };
 
@@ -327,7 +330,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell>{new Date(b.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
                                                 {(b.status === "Open" || b.status === "In Progress") &&
-                                                    (userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                    (userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                                                         <Button size="small" variant="outlined" sx={{ mr: 1 }}
                                                             onClick={() => { setSelectedBreakdown(b); setCloseData({ status: "Closed", rootCause: "", correctiveAction: "", assignedToUserId: b.assignedToUserId || "" }); setShowCloseBreakdown(true); }}>
                                                             Update
@@ -354,7 +357,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                 {tab === 1 && (
                     <Box>
                         <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 2 }}>
-                            {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                            {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                                 <Button variant="contained" startIcon={<AddIcon />}
                                     onClick={() => setShowAddPm(true)}>
                                     Add PM Schedule
@@ -399,7 +402,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                                                     <Button size="small" variant="contained" color="success"
                                                         onClick={() => handleCompletePm(p.id)}>
                                                         Done
@@ -444,7 +447,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                                             <TableCell><Chip label={r.status} color={r.status === "Open" ? "error" : "success"} size="small" /></TableCell>
                                             <TableCell>{new Date(r.createdAt).toLocaleDateString()}</TableCell>
                                             <TableCell>
-                                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                                {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                                                     <Button size="small" variant="outlined"
                                                         onClick={() => { setSelected8D({ ...r }); setShow8D(true); }}>
                                                         Fill 8D
@@ -527,7 +530,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                             <Select value={closeData.assignedToUserId} label="Assign To"
                                 onChange={(e) => setCloseData({ ...closeData, assignedToUserId: e.target.value })}>
                                 <MenuItem value="">Nobody</MenuItem>
-                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.email}</MenuItem>)}
+                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.username} ({u.role})</MenuItem>)}
                             </Select>
                         </FormControl>
                         <TextField label="Root Cause" multiline rows={2} value={closeData.rootCause}
@@ -577,7 +580,7 @@ export default function MaintenanceTab({ machines, onClose }) {
                             <Select value={newPm.assignedToUserId} label="Assign To"
                                 onChange={(e) => setNewPm({ ...newPm, assignedToUserId: e.target.value })}>
                                 <MenuItem value="">Nobody</MenuItem>
-                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.email}</MenuItem>)}
+                                {users.map(u => <MenuItem key={u.id} value={u.id}>{u.username} ({u.role})</MenuItem>)}
                             </Select>
                         </FormControl>
                     </Box>
@@ -770,12 +773,12 @@ export default function MaintenanceTab({ machines, onClose }) {
                                 p: 1.5, mb: 1, border: "1px solid #e0e0e0", borderRadius: 2
                             }}>
                                 <Box>
-                                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>{a.email}</Typography>
+                                    <Typography variant="body2" sx={{ fontWeight: "bold" }}>{a.name}</Typography>
                                     <Typography variant="caption" color="text.secondary">
                                         📱 {a.phoneNumber || "No phone"} · {a.department || "No dept"} · Role: {a.role}
                                     </Typography>
                                 </Box>
-                                {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                                {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                                     <Button size="small" color="error"
                                         onClick={() => handleRemoveAssignee(selectedBreakdownForAssign.id, a.userId)}>
                                         Remove
@@ -785,23 +788,26 @@ export default function MaintenanceTab({ machines, onClose }) {
                         ))}
 
                         {/* Add new assignee */}
-                        {(userInfo.role === "technician" || userInfo.role === "engineer") && (
+                        {(userInfo.role === "technician" || userInfo.role === "engineer" || userInfo.role === "admin") && (
                             <Box sx={{ mt: 3 }}>
                                 <Typography variant="subtitle1" sx={{ fontWeight: "bold", mb: 1 }}>
                                     Add Assignee
                                 </Typography>
                                 <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                     <FormControl fullWidth>
-                                        <InputLabel>Select User</InputLabel>
-                                        <Select value={newAssignee.userId} label="Select User"
+                                        <InputLabel>Select Name</InputLabel>
+                                        <Select value={newAssignee.userId} label="Select Name"
                                             onChange={(e) => setNewAssignee({ ...newAssignee, userId: e.target.value })}>
-                                            {users
-                                                .filter(u => u.role === "technician" || u.role === "engineer")
-                                                .map(u => (
-                                                    <MenuItem key={u.id} value={u.id}>
-                                                        {u.email} ({u.role}) {u.phoneNumber ? `· 📱 ${u.phoneNumber}` : ""}
-                                                    </MenuItem>
-                                                ))}
+                                            {contacts.length === 0 && (
+                                                <MenuItem disabled value="">
+                                                    No name cards yet — ask an engineer/admin to add one
+                                                </MenuItem>
+                                            )}
+                                            {contacts.map(c => (
+                                                <MenuItem key={c.id} value={c.id}>
+                                                    {c.name} ({c.role}) {c.phoneNumber ? `· 📱 ${c.phoneNumber}` : ""}
+                                                </MenuItem>
+                                            ))}
                                         </Select>
                                     </FormControl>
                                     <FormControl fullWidth>

@@ -15,10 +15,10 @@ function parseToken(t) {
         const decoded = JSON.parse(atob(base64));
         return {
             userId: parseInt(decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier"]),
-            email: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"],
+            username: decoded["http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"],
             role: decoded["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]
         };
-    } catch { return { userId: 0, email: "", role: "" }; }
+    } catch { return { userId: 0, username: "", role: "" }; }
 }
 
 export default function ProfilePage({ onClose }) {
@@ -72,7 +72,7 @@ export default function ProfilePage({ onClose }) {
                 <Card elevation={2}>
                     <CardContent>
                         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <TextField label="Email" value={userInfo.email} disabled fullWidth />
+                            <TextField label="Username" value={userInfo.username} disabled fullWidth />
                             <TextField label="Role" value={userInfo.role} disabled fullWidth />
                             <TextField label="Phone Number" value={phone}
                                 onChange={(e) => setPhone(e.target.value)}

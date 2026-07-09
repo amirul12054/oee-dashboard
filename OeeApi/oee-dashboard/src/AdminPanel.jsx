@@ -16,7 +16,7 @@ import API_URL from "./config";
 const API = API_URL
 const token = () => localStorage.getItem("oee_token");
 
-export default function AdminPanel({ onClose, currentUserEmail }) {
+export default function AdminPanel({ onClose, currentUsername }) {
     const [users, setUsers] = useState([]);
     const [machines, setMachines] = useState([]);
     const [error, setError] = useState("");
@@ -76,11 +76,11 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
     };
 
     const handleDeleteUser = async (user) => {
-        if (user.email === currentUserEmail) {
+        if (user.username === currentUsername) {
             setError("You cannot delete your own account");
             return;
         }
-        if (!window.confirm(`Delete user ${user.email}?`)) return;
+        if (!window.confirm(`Delete user ${user.username}?`)) return;
         const res = await fetch(`${API}/admin/users/${user.id}`, {
             method: "DELETE",
             headers: { Authorization: `Bearer ${token()}` }
@@ -156,7 +156,7 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Email</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Department</TableCell>
@@ -166,9 +166,9 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                             <TableBody>
                                 {users.map((user) => (
                                     <TableRow key={user.id} hover>
-                                        <TableCell>{user.email}</TableCell>
+                                        <TableCell>{user.username}</TableCell>
                                         <TableCell>
-                                            <Chip label={user.role} color={user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
+                                            <Chip label={user.role} color={user.role === "admin" ? "error" : user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
                                         </TableCell>
                                         <TableCell>{user.phoneNumber || "-"}</TableCell>
                                         <TableCell>{user.department || "-"}</TableCell>
@@ -180,7 +180,7 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
                                             </IconButton>
                                             <IconButton size="small" color="error"
                                                 onClick={() => handleDeleteUser(user)}
-                                                disabled={user.email === currentUserEmail}
+                                                disabled={user.username === currentUsername}
                                                 title="Delete user">
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
@@ -246,12 +246,13 @@ export default function AdminPanel({ onClose, currentUserEmail }) {
 
             {/* Edit Role Dialog */}
             <Dialog open={!!editUser} onClose={() => setEditUser(null)}>
-                <DialogTitle>Change Role — {editUser?.email}</DialogTitle>
+                <DialogTitle>Change Role — {editUser?.username}</DialogTitle>
                 <DialogContent>
                     <FormControl fullWidth sx={{ mt: 1 }}>
                         <InputLabel>Role</InputLabel>
                         <Select value={newRole} label="Role"
                             onChange={(e) => setNewRole(e.target.value)}>
+                            <MenuItem value="admin">Admin</MenuItem>
                             <MenuItem value="engineer">Engineer</MenuItem>
                             <MenuItem value="technician">Technician</MenuItem>
                             <MenuItem value="operator">Operator</MenuItem>

@@ -34,7 +34,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // Full user/account management (create/delete users, change roles) - admin only
+    options.AddPolicy("AdminOnly", p => p.RequireRole("admin"));
+    // Managing machines and technician/engineer name cards (contacts) - engineer or admin
+    options.AddPolicy("EngineerOrAdmin", p => p.RequireRole("engineer", "admin"));
+});
 
 var app = builder.Build();
 
@@ -113,7 +119,7 @@ app.MapGet("/admin/users", async (OeeDbContext db) =>
         .Select(u => new { u.Id, u.Username, u.Role, u.PhoneNumber, u.Department })
         .ToListAsync();
     return Results.Ok(users);
-}).RequireAuthorization();
+}).RequireAuthorization("AdminOnly");
 
 app.MapPost("/admin/users", async (OeeDbContext db, CreateUserRequest req) =>
 {
@@ -133,7 +139,7 @@ app.MapPost("/admin/users", async (OeeDbContext db, CreateUserRequest req) =>
     db.Users.Add(user);
     await db.SaveChangesAsync();
     return Results.Ok(new { user.Id, user.Username, user.Role });
-}).RequireAuthorization();
+}).RequireAuthorization("AdminOnly");
 
 app.MapPut("/admin/users/{id}/role", async (OeeDbContext db, int id, UpdateRoleRequest req) =>
 {
@@ -142,7 +148,7 @@ app.MapPut("/admin/users/{id}/role", async (OeeDbContext db, int id, UpdateRoleR
     user.Role = req.Role;
     await db.SaveChangesAsync();
     return Results.Ok(new { user.Id, user.Username, user.Role });
-}).RequireAuthorization();
+}).RequireAuthorization("AdminOnly");
 
 app.MapPost("/admin/users/{id}/reset-password", async (OeeDbContext db, int id) =>
 {
@@ -151,7 +157,7 @@ app.MapPost("/admin/users/{id}/reset-password", async (OeeDbContext db, int id) 
     user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(user.Username);
     await db.SaveChangesAsync();
     return Results.Ok("Password reset to username");
-}).RequireAuthorization();
+}).RequireAuthorization("AdminOnly");
 
 app.MapDelete("/admin/users/{id}", async (OeeDbContext db, int id) =>
 {
@@ -160,7 +166,7 @@ app.MapDelete("/admin/users/{id}", async (OeeDbContext db, int id) =>
     db.Users.Remove(user);
     await db.SaveChangesAsync();
     return Results.Ok("User deleted");
-}).RequireAuthorization();
+}).RequireAuthorization("AdminOnly");
 
 // ============ ADMIN - MACHINES ============
 
@@ -169,7 +175,7 @@ app.MapPost("/admin/machines", async (OeeDbContext db, MachineEntity machine) =>
     db.Machines.Add(machine);
     await db.SaveChangesAsync();
     return Results.Created($"/machines/{machine.Id}", machine);
-}).RequireAuthorization();
+}).RequireAuthorization("EngineerOrAdmin");
 
 app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
 {
@@ -178,7 +184,7 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
     db.Machines.Remove(machine);
     await db.SaveChangesAsync();
     return Results.Ok("Machine deleted");
-}).RequireAuthorization();
+}).RequireAuthorization("EngineerOrAdmin");
 
 // ============ MACHINES ============
 
@@ -556,7 +562,7 @@ app.MapPost("/contacts", async (OeeDbContext db, ContactEntity contact) =>
     db.Contacts.Add(contact);
     await db.SaveChangesAsync();
     return Results.Created($"/contacts/{contact.Id}", contact);
-}).RequireAuthorization();
+}).RequireAuthorization("EngineerOrAdmin");
 
 app.MapPut("/contacts/{id}", async (OeeDbContext db, int id, ContactEntity updated) =>
 {
@@ -568,7 +574,7 @@ app.MapPut("/contacts/{id}", async (OeeDbContext db, int id, ContactEntity updat
     contact.Department = updated.Department;
     await db.SaveChangesAsync();
     return Results.Ok(contact);
-}).RequireAuthorization();
+}).RequireAuthorization("EngineerOrAdmin");
 
 app.MapDelete("/contacts/{id}", async (OeeDbContext db, int id) =>
 {
@@ -577,53 +583,60 @@ app.MapDelete("/contacts/{id}", async (OeeDbContext db, int id) =>
     db.Contacts.Remove(contact);
     await db.SaveChangesAsync();
     return Results.Ok("Deleted");
-}).RequireAuthorization();
+}).RequireAuthorization("EngineerOrAdmin");
 
-// ============ SETUP ENDPOINTS (remove after use) ============
+// ============ SETUP ENDPOINTS (dev-only, one-time bootstrap) ============
+// These are only mapped when running locally (ASPNETCORE_ENVIRONMENT=Development).
+// They are intentionally excluded in Production (e.g. Railway) so they are never
+// publicly reachable. Once your 4 accounts + contacts table exist, you don't need
+// these again - they're just here for spinning up a fresh dev database.
 
-app.MapGet("/setup-accounts", async (OeeDbContext db) =>
+if (app.Environment.IsDevelopment())
 {
-    var accounts = new[]
+    app.MapGet("/setup-accounts", async (OeeDbContext db) =>
     {
-        new { Username = "admin", Role = "engineer" },
-        new { Username = "engineer", Role = "engineer" },
-        new { Username = "technician", Role = "technician" },
-        new { Username = "operator", Role = "operator" }
-    };
-    foreach (var acc in accounts)
-    {
-        var existing = await db.Users.FirstOrDefaultAsync(u => u.Username == acc.Username);
-        if (existing == null)
+        var accounts = new[]
         {
-            db.Users.Add(new UserEntity
+            new { Username = "admin", Role = "admin" },
+            new { Username = "engineer", Role = "engineer" },
+            new { Username = "technician", Role = "technician" },
+            new { Username = "operator", Role = "operator" }
+        };
+        foreach (var acc in accounts)
+        {
+            var existing = await db.Users.FirstOrDefaultAsync(u => u.Username == acc.Username);
+            if (existing == null)
             {
-                Username = acc.Username,
-                Email = $"{acc.Username}@oee.local",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(acc.Username),
-                Role = acc.Role
-            });
+                db.Users.Add(new UserEntity
+                {
+                    Username = acc.Username,
+                    Email = $"{acc.Username}@oee.local",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(acc.Username),
+                    Role = acc.Role
+                });
+            }
         }
-    }
-    await db.SaveChangesAsync();
-    return Results.Ok("4 accounts created");
-});
+        await db.SaveChangesAsync();
+        return Results.Ok("4 accounts created");
+    });
 
-app.MapGet("/setup-contacts", async (OeeDbContext db) =>
-{
-    await db.Database.ExecuteSqlRawAsync(@"
-        CREATE TABLE IF NOT EXISTS ""Contacts"" (
-            ""Id"" SERIAL PRIMARY KEY,
-            ""Name"" VARCHAR(100) NOT NULL,
-            ""Role"" VARCHAR(50) NOT NULL,
-            ""PhoneNumber"" VARCHAR(20),
-            ""Department"" VARCHAR(100),
-            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-        );
-        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(100);
-        UPDATE ""Users"" SET ""Username"" = SPLIT_PART(""Email"", '@', 1) WHERE ""Username"" IS NULL;
-    ");
-    return Results.Ok("Setup complete");
-});
+    app.MapGet("/setup-contacts", async (OeeDbContext db) =>
+    {
+        await db.Database.ExecuteSqlRawAsync(@"
+            CREATE TABLE IF NOT EXISTS ""Contacts"" (
+                ""Id"" SERIAL PRIMARY KEY,
+                ""Name"" VARCHAR(100) NOT NULL,
+                ""Role"" VARCHAR(50) NOT NULL,
+                ""PhoneNumber"" VARCHAR(20),
+                ""Department"" VARCHAR(100),
+                ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+            );
+            ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(100);
+            UPDATE ""Users"" SET ""Username"" = SPLIT_PART(""Email"", '@', 1) WHERE ""Username"" IS NULL;
+        ");
+        return Results.Ok("Setup complete");
+    });
+}
 
 app.Run();
 
