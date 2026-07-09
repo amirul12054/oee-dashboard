@@ -40,7 +40,7 @@ export default function MaintenanceTab({ machines, onClose }) {
     const [eightDReports, setEightDReports] = useState([]);
     const [summary, setSummary] = useState(null);
     const [users, setUsers] = useState([]);
-    const [contacts, setContacts] = useState([]);
+
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
     const userInfo = parseToken(token());

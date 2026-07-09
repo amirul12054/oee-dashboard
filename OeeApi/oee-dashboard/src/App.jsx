@@ -72,7 +72,7 @@ function OEEGauge({ value }) {
 
 export default function App() {
   const [token, setToken] = useState(localStorage.getItem("oee_token") || "");
-  const [page, setPage] = useState("login");
+
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
