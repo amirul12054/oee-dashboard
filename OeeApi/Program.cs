@@ -585,58 +585,6 @@ app.MapDelete("/contacts/{id}", async (OeeDbContext db, int id) =>
     return Results.Ok("Deleted");
 }).RequireAuthorization("EngineerOrAdmin");
 
-// ============ SETUP ENDPOINTS (dev-only, one-time bootstrap) ============
-// These are only mapped when running locally (ASPNETCORE_ENVIRONMENT=Development).
-// They are intentionally excluded in Production (e.g. Railway) so they are never
-// publicly reachable. Once your 4 accounts + contacts table exist, you don't need
-// these again - they're just here for spinning up a fresh dev database.
-
-if (app.Environment.IsDevelopment())
-{
-    app.MapGet("/setup-accounts", async (OeeDbContext db) =>
-    {
-        var accounts = new[]
-        {
-            new { Username = "admin", Role = "admin" },
-            new { Username = "engineer", Role = "engineer" },
-            new { Username = "technician", Role = "technician" },
-            new { Username = "operator", Role = "operator" }
-        };
-        foreach (var acc in accounts)
-        {
-            var existing = await db.Users.FirstOrDefaultAsync(u => u.Username == acc.Username);
-            if (existing == null)
-            {
-                db.Users.Add(new UserEntity
-                {
-                    Username = acc.Username,
-                    Email = $"{acc.Username}@oee.local",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(acc.Username),
-                    Role = acc.Role
-                });
-            }
-        }
-        await db.SaveChangesAsync();
-        return Results.Ok("4 accounts created");
-    });
-
-    app.MapGet("/setup-contacts", async (OeeDbContext db) =>
-    {
-        await db.Database.ExecuteSqlRawAsync(@"
-            CREATE TABLE IF NOT EXISTS ""Contacts"" (
-                ""Id"" SERIAL PRIMARY KEY,
-                ""Name"" VARCHAR(100) NOT NULL,
-                ""Role"" VARCHAR(50) NOT NULL,
-                ""PhoneNumber"" VARCHAR(20),
-                ""Department"" VARCHAR(100),
-                ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-            );
-            ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(100);
-            UPDATE ""Users"" SET ""Username"" = SPLIT_PART(""Email"", '@', 1) WHERE ""Username"" IS NULL;
-        ");
-        return Results.Ok("Setup complete");
-    });
-}
 
 
 app.Run();
