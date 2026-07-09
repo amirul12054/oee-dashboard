@@ -14,4 +14,5 @@ public class OeeDbContext : DbContext
     public DbSet<PmCompletionEntity> PmCompletions { get; set; }
     public DbSet<PdcaEntity> Pdca { get; set; }
     public DbSet<BreakdownAssigneeEntity> BreakdownAssignees { get; set; }
+    public DbSet<ContactEntity> Contacts { get; set; }
 }
