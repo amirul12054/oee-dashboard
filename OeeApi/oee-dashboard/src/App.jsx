@@ -9,8 +9,6 @@ import FactoryIcon from "@mui/icons-material/Factory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import Login from "./Login";
-import Register from "./Register";
-import ForgotPassword from "./ForgotPassword";
 import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
 import AdminPanel from "./AdminPanel";
