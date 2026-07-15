@@ -379,7 +379,13 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                 >
                                     <TableCell>Username</TableCell>
                                     <TableCell align="center">Role</TableCell>
-                                    <TableCell align="center">Actions</TableCell>
+                                    <TableCell align="center"
+                                        sx={{
+                                            width: 120,
+                                            fontWeight: "bold"
+                                        }}
+                                    >
+                                        Actions</TableCell>
                                 </TableRow>
                             </TableHead>
 
