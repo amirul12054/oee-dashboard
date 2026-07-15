@@ -606,6 +606,59 @@ app.MapGet("/setup-contacts", async (OeeDbContext db) =>
     ");
     return Results.Ok("Contacts and assignees tables ready");
 });
+app.MapGet("/setup-machine-connections", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        ALTER TABLE ""Machines"" 
+        ADD COLUMN IF NOT EXISTS ""ConnectionType"" VARCHAR(50) DEFAULT 'CSV',
+        ADD COLUMN IF NOT EXISTS ""OpcUaEndpoint"" VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS ""OpcUaNamespace"" INTEGER DEFAULT 2,
+        ADD COLUMN IF NOT EXISTS ""OpcUaNodeRunStatus"" VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS ""OpcUaNodeUnitCount"" VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS ""OpcUaNodeGoodUnits"" VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS ""OpcUaNodeFaultStatus"" VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS ""ModbusIp"" VARCHAR(100),
+        ADD COLUMN IF NOT EXISTS ""ModbusPort"" INTEGER DEFAULT 502,
+        ADD COLUMN IF NOT EXISTS ""ModbusSlaveId"" INTEGER DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS ""ModbusRegRunStatus"" INTEGER,
+        ADD COLUMN IF NOT EXISTS ""ModbusRegUnitCount"" INTEGER,
+        ADD COLUMN IF NOT EXISTS ""ModbusRegGoodUnits"" INTEGER,
+        ADD COLUMN IF NOT EXISTS ""ModbusRegFaultStatus"" INTEGER,
+        ADD COLUMN IF NOT EXISTS ""CsvFilePath"" VARCHAR(500),
+        ADD COLUMN IF NOT EXISTS ""CsvAutoImport"" BOOLEAN DEFAULT FALSE;
+    ");
+    return Results.Ok("Machine connection columns added");
+});
+
+// PUT update machine with connection settings
+app.MapPut("/admin/machines/{id}", async (OeeDbContext db, int id, MachineEntity updated) =>
+{
+    var machine = await db.Machines.FindAsync(id);
+    if (machine == null) return Results.NotFound();
+    machine.Name = updated.Name;
+    machine.IsRunning = updated.IsRunning;
+    machine.IdealRate = updated.IdealRate;
+    machine.PlannedTimeMinutes = updated.PlannedTimeMinutes;
+    machine.ConnectionType = updated.ConnectionType;
+    machine.OpcUaEndpoint = updated.OpcUaEndpoint;
+    machine.OpcUaNamespace = updated.OpcUaNamespace;
+    machine.OpcUaNodeRunStatus = updated.OpcUaNodeRunStatus;
+    machine.OpcUaNodeUnitCount = updated.OpcUaNodeUnitCount;
+    machine.OpcUaNodeGoodUnits = updated.OpcUaNodeGoodUnits;
+    machine.OpcUaNodeFaultStatus = updated.OpcUaNodeFaultStatus;
+    machine.ModbusIp = updated.ModbusIp;
+    machine.ModbusPort = updated.ModbusPort;
+    machine.ModbusSlaveId = updated.ModbusSlaveId;
+    machine.ModbusRegRunStatus = updated.ModbusRegRunStatus;
+    machine.ModbusRegUnitCount = updated.ModbusRegUnitCount;
+    machine.ModbusRegGoodUnits = updated.ModbusRegGoodUnits;
+    machine.ModbusRegFaultStatus = updated.ModbusRegFaultStatus;
+    machine.CsvFilePath = updated.CsvFilePath;
+    machine.CsvAutoImport = updated.CsvAutoImport;
+    await db.SaveChangesAsync();
+    return Results.Ok(machine);
+}).RequireAuthorization("EngineerOrAdmin");
+
 
 app.Run();
 
