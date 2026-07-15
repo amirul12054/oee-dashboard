@@ -354,13 +354,6 @@ export default function AdminPanel({ onClose, currentUsername }) {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
-                                    key={user.id}
-                                    hover
-                                    sx={{
-                                        "&:hover": {
-                                            bgcolor: "action.hover",
-                                        },
-                                    }}
                                     <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
