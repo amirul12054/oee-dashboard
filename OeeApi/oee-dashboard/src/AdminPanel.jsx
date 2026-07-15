@@ -27,6 +27,9 @@ export default function AdminPanel({ onClose, currentUsername }) {
         name: "", role: "Technician", phoneNumber: "", department: ""
     });
 
+
+
+
     // Add machine dialog
     const [showAddMachine, setShowAddMachine] = useState(false);
     const [newMachine, setNewMachine] = useState({
@@ -57,7 +60,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
             .catch(() => setError("Failed to load machines"));
     };
 
-    useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); }, []);
+
 
     const handleUpdateRole = async () => {
         const res = await fetch(`${API}/admin/users/${editUser.id}/role`, {
@@ -162,6 +165,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         if (res.ok) { setSuccess("Contact deleted"); fetchContacts(); }
         else setError("Failed to delete contact");
     };
+    useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); }, []);
 
     return (
         <Box sx={{ p: 3 }}>
