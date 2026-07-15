@@ -356,8 +356,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
                                     <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Phone</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Department</TableCell>
+
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
