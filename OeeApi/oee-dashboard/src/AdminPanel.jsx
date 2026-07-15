@@ -26,6 +26,8 @@ export default function AdminPanel({ onClose, currentUsername }) {
     const [newContact, setNewContact] = useState({
         name: "", role: "Technician", phoneNumber: "", department: ""
     });
+    const [showEditMachine, setShowEditMachine] = useState(false);
+    const [editMachineData, setEditMachineData] = useState(null);
 
 
 
@@ -35,7 +37,14 @@ export default function AdminPanel({ onClose, currentUsername }) {
     const [newMachine, setNewMachine] = useState({
         name: "", isRunning: false, unitsProduced: 0,
         goodUnits: 0, plannedTimeMinutes: 480,
-        runTimeMinutes: 0, idealRate: 0, actualRate: 0
+        runTimeMinutes: 0, idealRate: 0, actualRate: 0,
+        connectionType: "CSV", opcUaEndpoint: "", opcUaNamespace: 2,
+        opcUaNodeRunStatus: "", opcUaNodeUnitCount: "",
+        opcUaNodeGoodUnits: "", opcUaNodeFaultStatus: "",
+        modbusIp: "", modbusPort: 502, modbusSlaveId: 1,
+        modbusRegRunStatus: "", modbusRegUnitCount: "",
+        modbusRegGoodUnits: "", modbusRegFaultStatus: "",
+        csvFilePath: "", csvAutoImport: false
     });
 
     // Edit role dialog
@@ -100,12 +109,9 @@ export default function AdminPanel({ onClose, currentUsername }) {
 
     const handleAddMachine = async () => {
         if (!newMachine.name) { setError("Machine name is required"); return; }
-        const res = await fetch(`${API}/admin/machines`, {
+        const res = await fetch(`${API_URL}/admin/machines`, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token()}`
-            },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
             body: JSON.stringify(newMachine)
         });
         if (res.ok) {
@@ -114,12 +120,30 @@ export default function AdminPanel({ onClose, currentUsername }) {
             setNewMachine({
                 name: "", isRunning: false, unitsProduced: 0,
                 goodUnits: 0, plannedTimeMinutes: 480,
-                runTimeMinutes: 0, idealRate: 0, actualRate: 0
+                runTimeMinutes: 0, idealRate: 0, actualRate: 0,
+                connectionType: "CSV", opcUaEndpoint: "", opcUaNamespace: 2,
+                opcUaNodeRunStatus: "", opcUaNodeUnitCount: "",
+                opcUaNodeGoodUnits: "", opcUaNodeFaultStatus: "",
+                modbusIp: "", modbusPort: 502, modbusSlaveId: 1,
+                modbusRegRunStatus: "", modbusRegUnitCount: "",
+                modbusRegGoodUnits: "", modbusRegFaultStatus: "",
+                csvFilePath: "", csvAutoImport: false
             });
             fetchMachines();
-        } else {
-            setError("Failed to add machine");
-        }
+        } else setError("Failed to add machine");
+    };
+
+    const handleEditMachineSave = async () => {
+        const res = await fetch(`${API_URL}/admin/machines/${editMachineData.id}`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+            body: JSON.stringify(editMachineData)
+        });
+        if (res.ok) {
+            setSuccess(`Machine ${editMachineData.name} updated`);
+            setShowEditMachine(false);
+            fetchMachines();
+        } else setError("Failed to update machine");
     };
 
     const handleDeleteMachine = async (machine) => {
@@ -166,6 +190,144 @@ export default function AdminPanel({ onClose, currentUsername }) {
         else setError("Failed to delete contact");
     };
     useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); }, []);
+
+    const MachineForm = ({ data, onChange }) => (
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+            <TextField label="Machine Name *" value={data.name || ""}
+                onChange={(e) => onChange({ ...data, name: e.target.value })} fullWidth />
+            <TextField label="Ideal Rate (units/hour)" type="number" value={data.idealRate || 0}
+                onChange={(e) => onChange({ ...data, idealRate: parseInt(e.target.value) })} fullWidth />
+            <TextField label="Planned Time per Shift (minutes)" type="number" value={data.plannedTimeMinutes || 480}
+                onChange={(e) => onChange({ ...data, plannedTimeMinutes: parseInt(e.target.value) })} fullWidth />
+            <TextField label="Is Running" select value={(data.isRunning || false).toString()}
+                onChange={(e) => onChange({ ...data, isRunning: e.target.value === "true" })} fullWidth>
+                <MenuItem value="true">Running</MenuItem>
+                <MenuItem value="false">Stopped</MenuItem>
+            </TextField>
+
+            {/* Connection Type */}
+            <FormControl fullWidth>
+                <InputLabel>Data Connection Type</InputLabel>
+                <Select value={data.connectionType || "CSV"} label="Data Connection Type"
+                    onChange={(e) => onChange({ ...data, connectionType: e.target.value })}>
+                    <MenuItem value="CSV">📄 CSV Import (Basic)</MenuItem>
+                    <MenuItem value="OPCUA">🔌 OPC-UA Auto Connect (Standard)</MenuItem>
+                    <MenuItem value="Modbus">⚙️ Modbus TCP (Advanced)</MenuItem>
+                </Select>
+            </FormControl>
+
+            {/* CSV Settings */}
+            {(data.connectionType === "CSV" || !data.connectionType) && (
+                <Box sx={{ p: 2, border: "1px solid #e0e0e0", borderRadius: 2, backgroundColor: "#f9f9f9" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                        📄 CSV Import Settings
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                        Use the Import CSV button on the dashboard to upload machine data files manually.
+                        OEE will be calculated from each imported file.
+                    </Typography>
+                    <TextField label="CSV Auto-Import File Path (optional)" value={data.csvFilePath || ""}
+                        onChange={(e) => onChange({ ...data, csvFilePath: e.target.value })}
+                        placeholder="e.g. C:\MachineData\CNC01_output.csv"
+                        helperText="If set, system will watch this path for new files automatically"
+                        fullWidth size="small" />
+                </Box>
+            )}
+
+            {/* OPC-UA Settings */}
+            {data.connectionType === "OPCUA" && (
+                <Box sx={{ p: 2, border: "1px solid #1976d2", borderRadius: 2, backgroundColor: "#f0f7ff" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#1976d2" }}>
+                        🔌 OPC-UA Connection Settings
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        OPC-UA is supported by most modern PLCs (Siemens S7-1200/1500, Fanuc, Beckhoff, Mitsubishi iQ-R).
+                        Enable OPC-UA server on your PLC first, then enter the connection details below.
+                    </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                        <TextField label="OPC-UA Endpoint URL *" value={data.opcUaEndpoint || ""}
+                            onChange={(e) => onChange({ ...data, opcUaEndpoint: e.target.value })}
+                            placeholder="opc.tcp://192.168.1.100:4840"
+                            helperText="Format: opc.tcp://[PLC IP Address]:[Port, default 4840]"
+                            fullWidth size="small" />
+                        <TextField label="Namespace Index" type="number" value={data.opcUaNamespace || 2}
+                            onChange={(e) => onChange({ ...data, opcUaNamespace: parseInt(e.target.value) })}
+                            helperText="Usually 2 for user-defined tags. Check your PLC OPC-UA configuration."
+                            fullWidth size="small" />
+                        <TextField label="Node ID — Run Status" value={data.opcUaNodeRunStatus || ""}
+                            onChange={(e) => onChange({ ...data, opcUaNodeRunStatus: e.target.value })}
+                            placeholder="e.g. ns=2;s=Machine1.RunStatus"
+                            helperText="Tag that returns 1=Running, 0=Stopped"
+                            fullWidth size="small" />
+                        <TextField label="Node ID — Unit Count" value={data.opcUaNodeUnitCount || ""}
+                            onChange={(e) => onChange({ ...data, opcUaNodeUnitCount: e.target.value })}
+                            placeholder="e.g. ns=2;s=Machine1.TotalCount"
+                            helperText="Tag for total units produced this shift"
+                            fullWidth size="small" />
+                        <TextField label="Node ID — Good Units" value={data.opcUaNodeGoodUnits || ""}
+                            onChange={(e) => onChange({ ...data, opcUaNodeGoodUnits: e.target.value })}
+                            placeholder="e.g. ns=2;s=Machine1.GoodCount"
+                            helperText="Tag for good/pass units (leave empty if not available)"
+                            fullWidth size="small" />
+                        <TextField label="Node ID — Fault Status" value={data.opcUaNodeFaultStatus || ""}
+                            onChange={(e) => onChange({ ...data, opcUaNodeFaultStatus: e.target.value })}
+                            placeholder="e.g. ns=2;s=Machine1.FaultCode"
+                            helperText="Tag for fault/alarm code (optional, used for downtime tracking)"
+                            fullWidth size="small" />
+                    </Box>
+                </Box>
+            )}
+
+            {/* Modbus Settings */}
+            {data.connectionType === "Modbus" && (
+                <Box sx={{ p: 2, border: "1px solid #ed6c02", borderRadius: 2, backgroundColor: "#fff8f0" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#ed6c02" }}>
+                        ⚙️ Modbus TCP Connection Settings
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                        Modbus TCP works with most industrial equipment (Siemens S7-200/300/400, Allen Bradley,
+                        Schneider, older PLCs). Your PLC must have Modbus TCP server enabled.
+                        Register addresses are in decimal format.
+                    </Typography>
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                        <TextField label="PLC IP Address *" value={data.modbusIp || ""}
+                            onChange={(e) => onChange({ ...data, modbusIp: e.target.value })}
+                            placeholder="e.g. 192.168.1.100"
+                            helperText="IP address of your PLC on the factory network"
+                            fullWidth size="small" />
+                        <TextField label="Port" type="number" value={data.modbusPort || 502}
+                            onChange={(e) => onChange({ ...data, modbusPort: parseInt(e.target.value) })}
+                            helperText="Default Modbus TCP port is 502"
+                            fullWidth size="small" />
+                        <TextField label="Slave ID / Unit ID" type="number" value={data.modbusSlaveId || 1}
+                            onChange={(e) => onChange({ ...data, modbusSlaveId: parseInt(e.target.value) })}
+                            helperText="Usually 1. Check your PLC Modbus configuration."
+                            fullWidth size="small" />
+                        <TextField label="Register — Run Status" type="number" value={data.modbusRegRunStatus || ""}
+                            onChange={(e) => onChange({ ...data, modbusRegRunStatus: parseInt(e.target.value) })}
+                            placeholder="e.g. 100"
+                            helperText="Holding register address for machine run status (1=Running, 0=Stopped)"
+                            fullWidth size="small" />
+                        <TextField label="Register — Unit Count" type="number" value={data.modbusRegUnitCount || ""}
+                            onChange={(e) => onChange({ ...data, modbusRegUnitCount: parseInt(e.target.value) })}
+                            placeholder="e.g. 101"
+                            helperText="Holding register address for total units produced"
+                            fullWidth size="small" />
+                        <TextField label="Register — Good Units" type="number" value={data.modbusRegGoodUnits || ""}
+                            onChange={(e) => onChange({ ...data, modbusRegGoodUnits: parseInt(e.target.value) })}
+                            placeholder="e.g. 102"
+                            helperText="Holding register address for good/pass units (optional)"
+                            fullWidth size="small" />
+                        <TextField label="Register — Fault Status" type="number" value={data.modbusRegFaultStatus || ""}
+                            onChange={(e) => onChange({ ...data, modbusRegFaultStatus: parseInt(e.target.value) })}
+                            placeholder="e.g. 103"
+                            helperText="Holding register address for fault/alarm code (optional)"
+                            fullWidth size="small" />
+                    </Box>
+                </Box>
+            )}
+        </Box>
+    );
 
     return (
         <Box sx={{ p: 3 }}>
@@ -231,15 +393,12 @@ export default function AdminPanel({ onClose, currentUsername }) {
 
             <Divider sx={{ mb: 4 }} />
 
-            {/* Machines Section */}
+            {/* Machines */}
             <Card elevation={2}>
                 <CardContent>
                     <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
-                        <Typography variant="h6" sx={{ fontWeight: "bold" }}>
-                            Machine Management
-                        </Typography>
-                        <Button variant="contained" startIcon={<AddIcon />}
-                            onClick={() => setShowAddMachine(true)}>
+                        <Typography variant="h6" sx={{ fontWeight: "bold" }}>Machine Management</Typography>
+                        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddMachine(true)}>
                             Add Machine
                         </Button>
                     </Box>
@@ -250,6 +409,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                     <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Connection</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -258,17 +418,26 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                     <TableRow key={machine.id} hover>
                                         <TableCell sx={{ fontWeight: "bold" }}>{machine.name}</TableCell>
                                         <TableCell>
-                                            <Chip
-                                                label={machine.isRunning ? "Running" : "Stopped"}
-                                                color={machine.isRunning ? "success" : "error"}
-                                                size="small"
-                                            />
+                                            <Chip label={machine.isRunning ? "Running" : "Stopped"}
+                                                color={machine.isRunning ? "success" : "error"} size="small" />
                                         </TableCell>
                                         <TableCell>{machine.idealRate} units/hr</TableCell>
                                         <TableCell>
+                                            <Chip
+                                                label={machine.connectionType || "CSV"}
+                                                color={machine.connectionType === "OPCUA" ? "primary" :
+                                                    machine.connectionType === "Modbus" ? "warning" : "default"}
+                                                size="small"
+                                            />
+                                        </TableCell>
+                                        <TableCell>
+                                            <IconButton size="small" color="primary"
+                                                onClick={() => { setEditMachineData({ ...machine }); setShowEditMachine(true); }}
+                                                title="Edit machine">
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
                                             <IconButton size="small" color="error"
-                                                onClick={() => handleDeleteMachine(machine)}
-                                                title="Delete machine">
+                                                onClick={() => handleDeleteMachine(machine)} title="Delete machine">
                                                 <DeleteIcon fontSize="small" />
                                             </IconButton>
                                         </TableCell>
@@ -387,6 +556,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                 <DialogTitle>Add New Machine</DialogTitle>
                 <DialogContent>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+                        <MachineForm data={newMachine} onChange={setNewMachine} />
                         <TextField label="Machine Name" value={newMachine.name}
                             onChange={(e) => setNewMachine({ ...newMachine, name: e.target.value })}
                             fullWidth />
@@ -405,12 +575,26 @@ export default function AdminPanel({ onClose, currentUsername }) {
                             <MenuItem value="false">Stopped</MenuItem>
                         </TextField>
                     </Box>
+
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setShowAddMachine(false)}>Cancel</Button>
                     <Button onClick={handleAddMachine} variant="contained">Add Machine</Button>
                 </DialogActions>
             </Dialog>
+            {/* Edit Machine Dialog */}
+            {editMachineData && (
+                <Dialog open={showEditMachine} onClose={() => setShowEditMachine(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle>Edit Machine — {editMachineData.name}</DialogTitle>
+                    <DialogContent>
+                        <MachineForm data={editMachineData} onChange={setEditMachineData} />
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setShowEditMachine(false)}>Cancel</Button>
+                        <Button onClick={handleEditMachineSave} variant="contained">Save Changes</Button>
+                    </DialogActions>
+                </Dialog>
+            )}
         </Box>
     );
 }
