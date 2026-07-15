@@ -11,6 +11,7 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import DeleteIcon from "@mui/icons-material/Delete";
 import GroupIcon from "@mui/icons-material/Group";
 import API_URL from "./config";
 
@@ -345,134 +346,54 @@ export default function AdminPanel({ onClose, currentUsername }) {
             {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
 
-
             {/* Users Section */}
             <Card elevation={2} sx={{ mb: 4 }}>
                 <CardContent>
-
-                    {/* Header */}
-                    <Typography
-                        variant="h6"
-                        sx={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 1,
-                            fontWeight: "bold",
-                            mb: 2,
-                        }}
-                    >
-                        <GroupIcon />
+                    <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
                         User Management
                     </Typography>
-
                     <TableContainer>
                         <Table size="small">
-
                             <TableHead>
-                                <TableRow
+                                <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
+                                    key={user.id}
+                                    hover
                                     sx={{
-                                        bgcolor: "grey.100",
-                                        "& th": {
-                                            fontWeight: "bold",
+                                        "&:hover": {
+                                            bgcolor: "action.hover",
                                         },
                                     }}
-                                >
-                                    <TableCell>Username</TableCell>
-                                    <TableCell align="center">Role</TableCell>
-                                    <TableCell align="center"
-                                        sx={{
-                                            width: 120,
-                                            fontWeight: "bold"
-                                        }}
-                                    >
-                                        Actions</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
-
                             <TableBody>
-                                {users.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={3} align="center" sx={{ py: 4 }}>
-                                            <Typography color="text.secondary">
-                                                No users found.
-                                            </Typography>
+                                {users.map((user) => (
+                                    <TableRow key={user.id} hover>
+                                        <TableCell>{user.username}</TableCell>
+                                        <TableCell>
+                                            <Chip label={user.role} color={user.role === "admin" ? "error" : user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
+                                        </TableCell>
+
+                                        <TableCell>
+                                            <IconButton size="small" color="primary"
+                                                onClick={() => { setEditUser(user); setNewRole(user.role); }}
+                                                title="Change role">
+                                                <EditIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton size="small" color="error"
+                                                onClick={() => handleDeleteUser(user)}
+                                                disabled={user.username === currentUsername}
+                                                title="Delete user">
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
                                         </TableCell>
                                     </TableRow>
-                                ) : (
-                                    users.map((user) => (
-                                        <TableRow
-                                            key={user.id}
-                                            hover
-                                            sx={{
-                                                "&:hover": {
-                                                    bgcolor: "action.hover",
-                                                },
-                                            }}
-                                        >
-                                            <TableCell>{user.username}</TableCell>
-
-                                            <TableCell align="center">
-                                                <Chip
-                                                    label={user.role.toUpperCase()}
-                                                    color={
-                                                        user.role === "admin"
-                                                            ? "error"
-                                                            : user.role === "engineer"
-                                                                ? "primary"
-                                                                : user.role === "technician"
-                                                                    ? "warning"
-                                                                    : "default"
-                                                    }
-                                                    size="small"
-                                                    sx={{
-                                                        fontWeight: 600,
-                                                        minWidth: 100,
-                                                    }}
-                                                />
-                                            </TableCell>
-
-                                            <TableCell align="center" sx={{ width: 120 }}>
-                                                <Stack
-                                                    direction="row"
-                                                    spacing={1}
-                                                    justifyContent="center"
-                                                    alignItems="center"
-                                                >
-                                                    <IconButton
-                                                        size="small"
-                                                        color="primary"
-                                                        onClick={() => {
-                                                            setEditUser(user);
-                                                            setNewRole(user.role);
-                                                        }}
-                                                        title="Change Role"
-                                                    >
-                                                        <EditIcon fontSize="small" />
-                                                    </IconButton>
-
-                                                    <IconButton
-                                                        size="small"
-                                                        color="error"
-                                                        onClick={() => handleDeleteUser(user)}
-                                                        disabled={user.username === currentUsername}
-                                                        title={
-                                                            user.username === currentUsername
-                                                                ? "You cannot delete your own account"
-                                                                : "Delete User"
-                                                        }
-                                                    >
-                                                        <DeleteIcon fontSize="small" />
-                                                    </IconButton>
-                                                </Stack>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
+                                ))}
                             </TableBody>
-
                         </Table>
                     </TableContainer>
-
                 </CardContent>
             </Card>
 
