@@ -585,7 +585,27 @@ app.MapDelete("/contacts/{id}", async (OeeDbContext db, int id) =>
     return Results.Ok("Deleted");
 }).RequireAuthorization("EngineerOrAdmin");
 
-
+app.MapGet("/setup-contacts", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        CREATE TABLE IF NOT EXISTS ""Contacts"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Role"" VARCHAR(50) NOT NULL DEFAULT 'Technician',
+            ""PhoneNumber"" VARCHAR(20),
+            ""Department"" VARCHAR(100),
+            ""CreatedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ""BreakdownAssignees"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""BreakdownId"" INTEGER NOT NULL REFERENCES ""Breakdowns""(""Id""),
+            ""UserId"" INTEGER NOT NULL,
+            ""Role"" VARCHAR(50) NOT NULL DEFAULT 'Technician',
+            ""AssignedAt"" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+        );
+    ");
+    return Results.Ok("Contacts and assignees tables ready");
+});
 
 app.Run();
 
