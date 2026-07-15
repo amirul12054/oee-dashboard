@@ -367,8 +367,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                         <TableCell>
                                             <Chip label={user.role} color={user.role === "admin" ? "error" : user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
                                         </TableCell>
-                                        <TableCell>{user.phoneNumber || "-"}</TableCell>
-                                        <TableCell>{user.department || "-"}</TableCell>
+
                                         <TableCell>
                                             <IconButton size="small" color="primary"
                                                 onClick={() => { setEditUser(user); setNewRole(user.role); }}
