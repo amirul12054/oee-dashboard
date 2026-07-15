@@ -5,14 +5,12 @@ import {
     TableHead, TableRow, Chip, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, Select, MenuItem, FormControl, InputLabel,
-    Alert, Divider, Stack
+    Alert, Divider
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import DeleteIcon from "@mui/icons-material/Delete";
-import GroupIcon from "@mui/icons-material/Group";
 import API_URL from "./config";
 
 const API = API_URL
