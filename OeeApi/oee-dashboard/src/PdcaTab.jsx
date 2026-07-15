@@ -93,9 +93,11 @@ export default function PdcaTab({ machines, userInfo }) {
                 <Typography variant="body2" color="text.secondary">
                     Plan → Do → Check → Act cycle for continuous improvement
                 </Typography>
-                <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAdd(true)}>
-                    New PDCA
-                </Button>
+                {(userInfo.role === "engineer" || userInfo.role === "admin") && (
+                    <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAdd(true)}>
+                        New PDCA
+                    </Button>
+                )}
             </Box>
 
             <TableContainer component={Paper} elevation={2}>
@@ -131,10 +133,12 @@ export default function PdcaTab({ machines, userInfo }) {
                                     {p.act || "-"}
                                 </TableCell>
                                 <TableCell>
-                                    <Button size="small" variant="outlined"
-                                        onClick={() => { setSelected({ ...p }); setShowEdit(true); }}>
-                                        Edit
-                                    </Button>
+                                    {(userInfo.role === "engineer" || userInfo.role === "admin") && (
+                                        <Button size="small" variant="outlined"
+                                            onClick={() => { setSelected({ ...p }); setShowEdit(true); }}>
+                                            Edit
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         ))}
