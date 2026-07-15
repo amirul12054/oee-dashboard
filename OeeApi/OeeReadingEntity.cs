@@ -4,6 +4,8 @@ public class OeeReadingEntity
     public int MachineId { get; set; }
     public DateTime RecordedAt { get; set; }
     public string Shift { get; set; } = "Day";
+    public string ShiftName { get; set; } = "Morning";
+    public DateOnly? ShiftDate { get; set; }
     public int PlannedTimeMinutes { get; set; }
     public int RunTimeMinutes { get; set; }
     public int IdealRate { get; set; }

@@ -291,11 +291,19 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
             var quality = total > 0 ? (decimal)good / total : 0;
             var oee = availability * performance * quality * 100;
 
+            var recordedAt = DateTime.TryParse(cols[colDate], out var dt)
+    ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+    : DateTime.UtcNow;
+
+            var shiftName = recordedAt.Hour >= 6 && recordedAt.Hour < 18
+                ? "Morning" : "Night";
+
             readings.Add(new OeeReadingEntity
             {
                 MachineId = machineId,
-                RecordedAt = DateTime.TryParse(cols[colDate], out var dt)
-                    ? DateTime.SpecifyKind(dt, DateTimeKind.Utc) : DateTime.UtcNow,
+                RecordedAt = recordedAt,
+                ShiftDate = DateOnly.FromDateTime(recordedAt),
+                ShiftName = shiftName,
                 Shift = shift,
                 PlannedTimeMinutes = planned,
                 RunTimeMinutes = runtime,
@@ -659,7 +667,48 @@ app.MapPut("/admin/machines/{id}", async (OeeDbContext db, int id, MachineEntity
     return Results.Ok(machine);
 }).RequireAuthorization("EngineerOrAdmin");
 
+app.MapGet("/setup-shifts", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        ALTER TABLE ""OeeReadings"" 
+        ADD COLUMN IF NOT EXISTS ""ShiftDate"" DATE,
+        ADD COLUMN IF NOT EXISTS ""ShiftName"" VARCHAR(20) DEFAULT 'Morning';
+        
+        UPDATE ""OeeReadings"" 
+        SET ""ShiftDate"" = DATE(""RecordedAt""),
+            ""ShiftName"" = CASE 
+                WHEN EXTRACT(HOUR FROM ""RecordedAt"") >= 6 
+                AND EXTRACT(HOUR FROM ""RecordedAt"") < 18 
+                THEN 'Morning' 
+                ELSE 'Night' 
+            END
+        WHERE ""ShiftDate"" IS NULL;
+    ");
+    return Results.Ok("Shift columns added");
+});
 
+// GET OEE readings filtered by date and shift
+app.MapGet("/oee-readings", async (OeeDbContext db,
+    string? date, string? shift, int? machineId) =>
+{
+    var query = db.OeeReadings.AsQueryable();
+
+    if (!string.IsNullOrEmpty(date) && DateOnly.TryParse(date, out var d))
+        query = query.Where(r => r.ShiftDate == d);
+
+    if (!string.IsNullOrEmpty(shift) && shift != "All")
+        query = query.Where(r => r.ShiftName == shift);
+
+    if (machineId.HasValue)
+        query = query.Where(r => r.MachineId == machineId.Value);
+
+    var results = await query
+        .OrderByDescending(r => r.RecordedAt)
+        .Take(100)
+        .ToListAsync();
+
+    return Results.Ok(results);
+}).RequireAuthorization();
 app.Run();
 
 // ============ RECORDS ============
