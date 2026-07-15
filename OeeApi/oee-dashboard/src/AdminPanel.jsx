@@ -431,11 +431,12 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                                 />
                                             </TableCell>
 
-                                            <TableCell align="center">
+                                            <TableCell align="center" sx={{ width: 120 }}>
                                                 <Stack
                                                     direction="row"
                                                     spacing={1}
                                                     justifyContent="center"
+                                                    alignItems="center"
                                                 >
                                                     <IconButton
                                                         size="small"
