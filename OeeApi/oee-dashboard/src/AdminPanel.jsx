@@ -47,7 +47,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         modbusRegGoodUnits: "", modbusRegFaultStatus: "",
         csvFilePath: "", csvAutoImport: false
     });
-    const [showAddUser, setShowAddUser] = useState(false);
+
 
     // Edit role dialog
     const [editUser, setEditUser] = useState(null);
