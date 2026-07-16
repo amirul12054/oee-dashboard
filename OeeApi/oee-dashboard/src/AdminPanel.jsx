@@ -366,9 +366,6 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                 Manage login accounts — default password equals username
                             </Typography>
                         </Box>
-                        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddUser(true)}>
-                            Add User
-                        </Button>
                     </Box>
                     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                         <Table size="small">
