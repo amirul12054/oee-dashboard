@@ -10,6 +10,7 @@ import {
     Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts";
 import API_URL from "./config";
+import { useCallback, useEffect } from "react";
 
 const token = () => localStorage.getItem("oee_token");
 
@@ -23,26 +24,41 @@ export default function ShiftFilter({ machines }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    const fetchReadings = async () => {
+
+
+
+    const fetchReadings = useCallback(async () => {
         setLoading(true);
         setError("");
+
         try {
             let url = `${API_URL}/oee-readings?date=${selectedDate}&shift=${selectedShift}`;
-            if (selectedMachine !== "all") url += `&machineId=${selectedMachine}`;
+
+            if (selectedMachine !== "all") {
+                url += `&machineId=${selectedMachine}`;
+            }
 
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token()}` }
+                headers: {
+                    Authorization: `Bearer ${token()}`
+                }
             });
-            if (!res.ok) throw new Error("Failed to fetch");
+
+            if (!res.ok) throw new Error();
+
             const data = await res.json();
+
             setReadings(Array.isArray(data) ? data : []);
         } catch {
             setError("Failed to load shift data");
         }
-        setLoading(false);
-    };
 
-    useEffect(() => { fetchReadings(); }, []);
+        setLoading(false);
+    }, [selectedDate, selectedShift, selectedMachine]);
+
+    useEffect(() => {
+        fetchReadings();
+    }, [fetchReadings]);
 
     const getMachineName = (id) =>
         machines.find(m => m.id === id)?.name || `Machine ${id}`;
