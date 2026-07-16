@@ -8,6 +8,8 @@ import {
 } from "@mui/material";
 import UploadFileIcon from "@mui/icons-material/UploadFile";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import IconButton from "@mui/material/IconButton";
 import API_URL from "./config";
 
 const OEE_FIELDS = [
@@ -96,9 +98,12 @@ export default function CsvImport({ onClose }) {
 
     return (
         <Box sx={{ p: 3 }}>
-            <Typography variant="h5" sx={{ fontWeight: "bold", mb: 3 }}>
-                CSV Data Import
-            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
+                <IconButton onClick={onClose}><ArrowBackIcon /></IconButton>
+                <Typography variant="h5" sx={{ fontWeight: "bold" }}>
+                    CSV Data Import
+                </Typography>
+            </Box>
 
             <Stepper activeStep={step} sx={{ mb: 4 }}>
                 <Step><StepLabel>Upload File</StepLabel></Step>

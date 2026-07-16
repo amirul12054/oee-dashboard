@@ -10,6 +10,7 @@ import {
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import AddIcon from "@mui/icons-material/Add";
+import LockResetIcon from "@mui/icons-material/LockReset";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import API_URL from "./config";
 
@@ -345,33 +346,71 @@ export default function AdminPanel({ onClose, currentUsername }) {
             {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
 
             {/* Users Section */}
-            <Card elevation={2} sx={{ mb: 4 }}>
+            <Card elevation={2} sx={{ mb: 4, borderRadius: 3 }}>
                 <CardContent>
-                    <Typography variant="h6" sx={{ fontWeight: "bold", mb: 2 }}>
-                        User Management
-                    </Typography>
-                    <TableContainer>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 2 }}>
+                        <Box>
+                            <Typography variant="h6" sx={{ fontWeight: "bold" }}>User Management</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                                Manage login accounts — default password equals username
+                            </Typography>
+                        </Box>
+                        <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowAddUser(true)}>
+                            Add User
+                        </Button>
+                    </Box>
+                    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
                         <Table size="small">
                             <TableHead>
-                                <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Username</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Role</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
+                                <TableRow sx={{ backgroundColor: "#1976d2" }}>
+                                    <TableCell sx={{ fontWeight: "bold", color: "white" }}>Username</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold", color: "white" }}>Role</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold", color: "white" }} align="right">Actions</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>
-                                {users.map((user) => (
-                                    <TableRow key={user.id} hover>
-                                        <TableCell>{user.username}</TableCell>
+                                {users.map((user, index) => (
+                                    <TableRow key={user.id} hover
+                                        sx={{ backgroundColor: index % 2 === 0 ? "white" : "#f9f9f9" }}>
                                         <TableCell>
-                                            <Chip label={user.role} color={user.role === "admin" ? "error" : user.role === "engineer" ? "primary" : user.role === "technician" ? "warning" : "default"} size="small" />
+                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                                                <Box sx={{
+                                                    width: 32, height: 32, borderRadius: "50%",
+                                                    backgroundColor: user.role === "engineer" ? "#1976d2" :
+                                                        user.role === "technician" ? "#ed6c02" : "#757575",
+                                                    display: "flex", alignItems: "center", justifyContent: "center",
+                                                    color: "white", fontSize: 14, fontWeight: "bold"
+                                                }}>
+                                                    {user.username?.charAt(0).toUpperCase()}
+                                                </Box>
+                                                <Typography variant="body2" sx={{ fontWeight: "bold" }}>
+                                                    {user.username}
+                                                </Typography>
+                                            </Box>
                                         </TableCell>
-
                                         <TableCell>
+                                            <Chip
+                                                label={user.role}
+                                                size="small"
+                                                sx={{
+                                                    fontWeight: "bold",
+                                                    backgroundColor: user.role === "engineer" ? "#e3f2fd" :
+                                                        user.role === "technician" ? "#fff3e0" : "#f5f5f5",
+                                                    color: user.role === "engineer" ? "#1976d2" :
+                                                        user.role === "technician" ? "#e65100" : "#616161"
+                                                }}
+                                            />
+                                        </TableCell>
+                                        <TableCell align="right">
                                             <IconButton size="small" color="primary"
                                                 onClick={() => { setEditUser(user); setNewRole(user.role); }}
                                                 title="Change role">
                                                 <EditIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton size="small" color="warning"
+                                                onClick={() => handleResetPassword(user)}
+                                                title="Reset password to username">
+                                                <LockResetIcon fontSize="small" />
                                             </IconButton>
                                             <IconButton size="small" color="error"
                                                 onClick={() => handleDeleteUser(user)}
@@ -382,6 +421,13 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                         </TableCell>
                                     </TableRow>
                                 ))}
+                                {users.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={3} align="center" sx={{ py: 3, color: "text.secondary" }}>
+                                            No users yet
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     </TableContainer>
