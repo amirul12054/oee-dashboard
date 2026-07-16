@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
     Box, Card, CardContent, Typography, Button,
     Table, TableBody, TableCell, TableContainer,
-    TableHead, TableRow, Chip, IconButton,
+    TableHead, TableRow, Paper, Chip, IconButton,
     Dialog, DialogTitle, DialogContent, DialogActions,
     TextField, Select, MenuItem, FormControl, InputLabel,
     Alert, Divider
@@ -47,6 +47,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         modbusRegGoodUnits: "", modbusRegFaultStatus: "",
         csvFilePath: "", csvAutoImport: false
     });
+    const [showAddUser, setShowAddUser] = useState(false);
 
     // Edit role dialog
     const [editUser, setEditUser] = useState(null);
@@ -107,6 +108,16 @@ export default function AdminPanel({ onClose, currentUsername }) {
             setError("Failed to delete user");
         }
     };
+    const handleResetPassword = async (user) => {
+        if (!window.confirm(`Reset password for ${user.username} to their username?`)) return;
+        const res = await fetch(`${API_URL}/admin/users/${user.id}/reset-password`, {
+            method: "POST",
+            headers: { Authorization: `Bearer ${token()}` }
+        });
+        if (res.ok) setSuccess(`Password reset to "${user.username}"`);
+        else setError("Failed to reset password");
+    };
+
 
     const handleAddMachine = async () => {
         if (!newMachine.name) { setError("Machine name is required"); return; }
