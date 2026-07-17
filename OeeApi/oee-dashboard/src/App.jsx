@@ -15,7 +15,7 @@ import AdminPanel from "./AdminPanel";
 import API_URL from "./config";
 import MaintenanceTab from "./MaintenanceTab";
 import ProfilePage from "./ProfilePage";
-import ShiftFilter from "./ShiftFilter";
+
 
 
 function parseToken(token) {
@@ -82,7 +82,23 @@ export default function App() {
   const [showAdmin, setShowAdmin] = useState(false);
   const [showMaintenance, setShowMaintenance] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [showShiftReport, setShowShiftReport] = useState(false);
+
+
+  const [selectedDate, setSelectedDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [dateReadings, setDateReadings] = useState([]);
+
+  const fetchDateReadings = async (date) => {
+    const storedToken = localStorage.getItem("oee_token");
+    const res = await fetch(`${API_URL}/oee-readings?date=${date}`, {
+      headers: { Authorization: `Bearer ${storedToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setDateReadings(Array.isArray(data) ? data : []);
+    }
+  };
 
 
   const fetchMachines = () => {
@@ -115,7 +131,11 @@ export default function App() {
   useEffect(() => {
     if (!token) return;
     fetchMachines();
-    const interval = setInterval(fetchMachines, 30000);
+    fetchDateReadings(selectedDate);
+    const interval = setInterval(() => {
+      fetchMachines();
+      fetchDateReadings(selectedDate);
+    }, 30000);
     return () => clearInterval(interval);
   }, [token]);
 
@@ -173,8 +193,11 @@ export default function App() {
     <ProfilePage onClose={() => setShowProfile(false)} />
   );
 
-  const averageOEE =
-    machines.reduce((sum, m) => sum + calculateOEE(m), 0) / machines.length;
+  const averageOEE = dateReadings.length > 0
+    ? dateReadings.reduce((sum, r) => sum + parseFloat(r.oeeScore), 0) / dateReadings.length
+    : machines.length > 0
+      ? machines.reduce((sum, m) => sum + calculateOEE(m), 0) / machines.length
+      : 0;
   const runningCount = machines.filter((m) => m.isRunning).length;
 
   return (
@@ -191,6 +214,20 @@ export default function App() {
                 Real-time machine performance monitoring
               </Typography>
             </Box>
+          </Box>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">Viewing:</Typography>
+            <TextField
+              type="date"
+              size="small"
+              value={selectedDate}
+              onChange={(e) => {
+                setSelectedDate(e.target.value);
+                fetchDateReadings(e.target.value);
+              }}
+              InputLabelProps={{ shrink: true }}
+              sx={{ width: 160 }}
+            />
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box sx={{ textAlign: "right", cursor: "pointer" }} onClick={() => setShowProfile(true)}>
@@ -259,10 +296,14 @@ export default function App() {
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>Total Units Produced</Typography>
                 <Typography variant="h3" sx={{ fontWeight: "bold" }} color="primary">
-                  {machines.reduce((sum, m) => sum + m.unitsProduced, 0)}
+                  {dateReadings.length > 0
+                    ? dateReadings.reduce((sum, r) => sum + r.totalUnits, 0)
+                    : machines.reduce((sum, m) => sum + m.unitsProduced, 0)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Good units: {machines.reduce((sum, m) => sum + m.goodUnits, 0)}
+                  Good units: {dateReadings.length > 0
+                    ? dateReadings.reduce((sum, r) => sum + r.goodUnits, 0)
+                    : machines.reduce((sum, m) => sum + m.goodUnits, 0)}
                 </Typography>
               </CardContent>
             </Card>
@@ -284,13 +325,33 @@ export default function App() {
             </TableHead>
             <TableBody>
               {machines.map((machine) => {
-                const availability = (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100;
-                const performance = (machine.actualRate / machine.idealRate) * 100;
-                const quality = (machine.goodUnits / machine.unitsProduced) * 100;
-                const oee = calculateOEE(machine);
+                // Find reading for this machine on selected date
+                const machineReadings = dateReadings.filter(r => r.machineId === machine.id);
+                const latestReading = machineReadings[0];
+
+                const availability = latestReading
+                  ? parseFloat(latestReading.availability)
+                  : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100;
+                const performance = latestReading
+                  ? parseFloat(latestReading.performance)
+                  : (machine.actualRate / machine.idealRate) * 100;
+                const quality = latestReading
+                  ? parseFloat(latestReading.quality)
+                  : (machine.goodUnits / machine.unitsProduced) * 100;
+                const oee = latestReading
+                  ? parseFloat(latestReading.oeeScore)
+                  : calculateOEE(machine);
+
                 return (
                   <TableRow key={machine.id} hover>
-                    <TableCell><Typography sx={{ fontWeight: "bold" }}>{machine.name}</Typography></TableCell>
+                    <TableCell>
+                      <Typography sx={{ fontWeight: "bold" }}>{machine.name}</Typography>
+                      {latestReading && (
+                        <Typography variant="caption" color="text.secondary">
+                          📅 {selectedDate} · {latestReading.shiftName || "Day"} shift
+                        </Typography>
+                      )}
+                    </TableCell>
                     <TableCell>
                       <Chip
                         icon={machine.isRunning ? <CheckCircleIcon /> : <CancelIcon />}
@@ -311,7 +372,7 @@ export default function App() {
                       <Chip label={`${quality.toFixed(1)}%`}
                         color={getOEEColor(quality)} size="small" variant="outlined" />
                     </TableCell>
-                    <TableCell><OEEGauge value={oee} /></TableCell>
+                    <TableCell><OEEGauge value={isNaN(oee) ? 0 : oee} /></TableCell>
                   </TableRow>
                 );
               })}
