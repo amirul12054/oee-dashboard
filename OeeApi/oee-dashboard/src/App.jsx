@@ -170,19 +170,6 @@ export default function App() {
       onClose={() => { setShowMaintenance(false); fetchMachines(); }}
     />
   );
-  if (showShiftReport) return (
-    <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", py: 4 }}>
-      <Container maxWidth="lg">
-        <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-          <Button variant="outlined" onClick={() => setShowShiftReport(false)}>
-            ← Back
-          </Button>
-          <Typography variant="h5" sx={{ fontWeight: "bold" }}>Shift Report</Typography>
-        </Box>
-        <ShiftFilter machines={machines} />
-      </Container>
-    </Box>
-  );
   if (loading) return (
     <Box sx={{ display: "flex", justifyContent: "center", mt: 10 }}>
       <CircularProgress />
@@ -258,10 +245,7 @@ export default function App() {
               onClick={() => setShowMaintenance(true)}>
               Maintenance
             </Button>
-            <Button variant="outlined" size="small" color="success"
-              onClick={() => setShowShiftReport(true)}>
-              Shift Report
-            </Button>
+
           </Box>
         </Box>
 
