@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Box, Card, CardContent, Chip, CircularProgress,
   Container, Grid, Paper, TextField, Table, TableBody, TableCell,
@@ -89,22 +89,29 @@ export default function App() {
   );
   const [dateReadings, setDateReadings] = useState([]);
 
-  const fetchDateReadings = async (date) => {
+  const fetchDateReadings = useCallback(async (date) => {
     const storedToken = localStorage.getItem("oee_token");
+
     const res = await fetch(`${API_URL}/oee-readings?date=${date}`, {
-      headers: { Authorization: `Bearer ${storedToken}` }
+      headers: {
+        Authorization: `Bearer ${storedToken}`,
+      },
     });
+
     if (res.ok) {
       const data = await res.json();
       setDateReadings(Array.isArray(data) ? data : []);
     }
-  };
+  }, []);
 
 
-  const fetchMachines = () => {
+  const fetchMachines = useCallback(() => {
     const storedToken = localStorage.getItem("oee_token");
+
     fetch(`${API_URL}/machines`, {
-      headers: { Authorization: `Bearer ${storedToken}` }
+      headers: {
+        Authorization: `Bearer ${storedToken}`,
+      },
     })
       .then((res) => {
         if (res.status === 401) {
@@ -113,11 +120,14 @@ export default function App() {
           setLoading(false);
           return null;
         }
+
         if (!res.ok) throw new Error("API error");
+
         return res.json();
       })
       .then((data) => {
         if (!data) return;
+
         setMachines(data);
         setLoading(false);
         setLastUpdated(new Date());
@@ -125,19 +135,23 @@ export default function App() {
       .catch(() => {
         setLoading(false);
       });
-  };
+  }, []);
 
-  // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!token) return;
+
     fetchMachines();
     fetchDateReadings(selectedDate);
+
     const interval = setInterval(() => {
       fetchMachines();
       fetchDateReadings(selectedDate);
     }, 30000);
+
     return () => clearInterval(interval);
-  }, [token]);
+  }, [token, selectedDate, fetchMachines, fetchDateReadings]);
+
+
 
   const handleLogin = (newToken) => {
     localStorage.setItem("oee_token", newToken);
