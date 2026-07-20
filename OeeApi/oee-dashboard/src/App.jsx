@@ -9,7 +9,7 @@ import FactoryIcon from "@mui/icons-material/Factory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
-import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
 import Login from "./Login";
 import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
