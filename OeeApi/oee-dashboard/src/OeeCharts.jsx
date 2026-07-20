@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
     Box, Card, CardContent, Typography,
     FormControl, InputLabel, Select, MenuItem,
-    CircularProgress, Alert
+    CircularProgress, Alert, TextField, Button,
 } from "@mui/material";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -10,17 +10,34 @@ import {
 } from "recharts";
 import API_URL from "./config";
 
+function defaultFromDate() {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split("T")[0];
+}
+function todayDate() {
+    return new Date().toISOString().split("T")[0];
+}
+
 export default function OeeCharts({ machines }) {
     const [selectedMachine, setSelectedMachine] = useState("");
+    const [fromDate, setFromDate] = useState(defaultFromDate());
+    const [toDate, setToDate] = useState(todayDate());
+    const [shiftFilter, setShiftFilter] = useState("All");
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
-    useEffect(() => {
+    const loadHistory = () => {
         if (!selectedMachine) return;
         setLoading(true);
         setError("");
-        fetch(`${API_URL}/machines/${selectedMachine}/history`, {
+        const params = new URLSearchParams();
+        if (fromDate) params.set("from", fromDate);
+        if (toDate) params.set("to", toDate);
+        if (shiftFilter && shiftFilter !== "All") params.set("shift", shiftFilter);
+
+        fetch(`${API_URL}/machines/${selectedMachine}/history?${params.toString()}`, {
             headers: { Authorization: `Bearer ${localStorage.getItem("oee_token")}` }
         })
             .then((res) => res.json())
@@ -29,7 +46,7 @@ export default function OeeCharts({ machines }) {
                     .reverse()
                     .map((r) => ({
                         date: new Date(r.recordedAt).toLocaleDateString("en-MY"),
-                        shift: r.shift,
+                        shift: r.shiftName || "Day",
                         OEE: parseFloat(r.oeeScore),
                         Availability: parseFloat(r.availability),
                         Performance: parseFloat(r.performance),
@@ -42,6 +59,11 @@ export default function OeeCharts({ machines }) {
                 setError("Failed to load history");
                 setLoading(false);
             });
+    };
+
+    useEffect(() => {
+        loadHistory();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedMachine]);
 
     return (
@@ -50,18 +72,51 @@ export default function OeeCharts({ machines }) {
                 OEE Trend Analysis
             </Typography>
 
-            <FormControl sx={{ minWidth: 250, mb: 3 }}>
-                <InputLabel>Select Machine</InputLabel>
-                <Select
-                    value={selectedMachine}
-                    label="Select Machine"
-                    onChange={(e) => setSelectedMachine(e.target.value)}
-                >
-                    {machines.map((m) => (
-                        <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
-                    ))}
-                </Select>
-            </FormControl>
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", alignItems: "flex-end", mb: 3 }}>
+                <FormControl sx={{ minWidth: 250 }}>
+                    <InputLabel>Select Machine</InputLabel>
+                    <Select
+                        value={selectedMachine}
+                        label="Select Machine"
+                        onChange={(e) => setSelectedMachine(e.target.value)}
+                    >
+                        {machines.map((m) => (
+                            <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <TextField
+                    label="From"
+                    type="date"
+                    size="small"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                    label="To"
+                    type="date"
+                    size="small"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                />
+                <FormControl sx={{ minWidth: 140 }}>
+                    <InputLabel>Shift</InputLabel>
+                    <Select
+                        value={shiftFilter}
+                        label="Shift"
+                        onChange={(e) => setShiftFilter(e.target.value)}
+                    >
+                        <MenuItem value="All">All shifts</MenuItem>
+                        <MenuItem value="Morning">Morning</MenuItem>
+                        <MenuItem value="Night">Night</MenuItem>
+                    </Select>
+                </FormControl>
+                <Button variant="contained" onClick={loadHistory} disabled={!selectedMachine}>
+                    Apply
+                </Button>
+            </Box>
 
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 

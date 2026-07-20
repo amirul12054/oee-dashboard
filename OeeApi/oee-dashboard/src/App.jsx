@@ -3,7 +3,7 @@ import {
   Box, Card, CardContent, Chip, CircularProgress,
   Container, Grid, Paper, TextField, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Typography,
-  Button,
+  Button, FormControl, InputLabel, Select, MenuItem,
 } from "@mui/material";
 import FactoryIcon from "@mui/icons-material/Factory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
@@ -87,12 +87,14 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+  const [selectedShift, setSelectedShift] = useState("All");
   const [dateReadings, setDateReadings] = useState([]);
 
-  const fetchDateReadings = useCallback(async (date) => {
+  const fetchDateReadings = useCallback(async (date, shift) => {
     const storedToken = localStorage.getItem("oee_token");
 
-    const res = await fetch(`${API_URL}/oee-readings?date=${date}`, {
+    const shiftParam = shift && shift !== "All" ? `&shift=${shift}` : "";
+    const res = await fetch(`${API_URL}/oee-readings?date=${date}${shiftParam}`, {
       headers: {
         Authorization: `Bearer ${storedToken}`,
       },
@@ -141,15 +143,15 @@ export default function App() {
     if (!token) return;
 
     fetchMachines();
-    fetchDateReadings(selectedDate);
+    fetchDateReadings(selectedDate, selectedShift);
 
     const interval = setInterval(() => {
       fetchMachines();
-      fetchDateReadings(selectedDate);
+      fetchDateReadings(selectedDate, selectedShift);
     }, 30000);
 
     return () => clearInterval(interval);
-  }, [token, selectedDate, fetchMachines, fetchDateReadings]);
+  }, [token, selectedDate, selectedShift, fetchMachines, fetchDateReadings]);
 
 
 
@@ -224,11 +226,26 @@ export default function App() {
               value={selectedDate}
               onChange={(e) => {
                 setSelectedDate(e.target.value);
-                fetchDateReadings(e.target.value);
+                fetchDateReadings(e.target.value, selectedShift);
               }}
               InputLabelProps={{ shrink: true }}
               sx={{ width: 160 }}
             />
+            <FormControl size="small" sx={{ minWidth: 130 }}>
+              <InputLabel>Shift</InputLabel>
+              <Select
+                value={selectedShift}
+                label="Shift"
+                onChange={(e) => {
+                  setSelectedShift(e.target.value);
+                  fetchDateReadings(selectedDate, e.target.value);
+                }}
+              >
+                <MenuItem value="All">All shifts</MenuItem>
+                <MenuItem value="Morning">Morning</MenuItem>
+                <MenuItem value="Night">Night</MenuItem>
+              </Select>
+            </FormControl>
           </Box>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box sx={{ textAlign: "right", cursor: "pointer" }} onClick={() => setShowProfile(true)}>

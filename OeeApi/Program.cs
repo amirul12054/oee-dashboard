@@ -215,13 +215,26 @@ app.MapPut("/machines/{id}", async (OeeDbContext db, int id, MachineEntity updat
     return Results.Ok(machine);
 }).RequireAuthorization();
 
-app.MapGet("/machines/{id}/history", async (OeeDbContext db, int id) =>
+app.MapGet("/machines/{id}/history", async (OeeDbContext db, int id, string? from, string? to, string? shift) =>
 {
-    var history = await db.OeeReadings
-        .Where(r => r.MachineId == id)
-        .OrderByDescending(r => r.RecordedAt)
-        .Take(30)
-        .ToListAsync();
+    var query = db.OeeReadings.Where(r => r.MachineId == id);
+
+    if (!string.IsNullOrEmpty(from) && DateOnly.TryParse(from, out var fromDate))
+        query = query.Where(r => r.ShiftDate >= fromDate);
+
+    if (!string.IsNullOrEmpty(to) && DateOnly.TryParse(to, out var toDate))
+        query = query.Where(r => r.ShiftDate <= toDate);
+
+    if (!string.IsNullOrEmpty(shift) && shift != "All")
+        query = query.Where(r => r.ShiftName == shift);
+
+    // No explicit range given -> keep old "recent 30" behavior.
+    // Explicit range given -> return everything in range (capped at a sane max).
+    var hasRange = !string.IsNullOrEmpty(from) || !string.IsNullOrEmpty(to);
+    var history = hasRange
+        ? await query.OrderByDescending(r => r.RecordedAt).Take(1000).ToListAsync()
+        : await query.OrderByDescending(r => r.RecordedAt).Take(30).ToListAsync();
+
     return Results.Ok(history);
 }).RequireAuthorization();
 
