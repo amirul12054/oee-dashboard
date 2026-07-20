@@ -384,30 +384,31 @@ export default function App() {
                 const hasData = isAllShifts ? !!agg : !!latestReading;
 
                 const availability = isAllShifts
-                  ? (agg ? agg.availability : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100)
+                  ? (agg ? agg.availability : null)
                   : latestReading
                     ? parseFloat(latestReading.availability)
-                    : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100;
+                    : null;
                 const performance = isAllShifts
-                  ? (agg ? agg.performance : (machine.actualRate / machine.idealRate) * 100)
+                  ? (agg ? agg.performance : null)
                   : latestReading
                     ? parseFloat(latestReading.performance)
-                    : (machine.actualRate / machine.idealRate) * 100;
+                    : null;
                 const quality = isAllShifts
-                  ? (agg ? agg.quality : (machine.goodUnits / machine.unitsProduced) * 100)
+                  ? (agg ? agg.quality : null)
                   : latestReading
                     ? parseFloat(latestReading.quality)
-                    : (machine.goodUnits / machine.unitsProduced) * 100;
+                    : null;
                 const oee = isAllShifts
-                  ? (agg ? agg.oee : calculateOEE(machine))
+                  ? (agg ? agg.oee : null)
                   : latestReading
                     ? parseFloat(latestReading.oeeScore)
-                    : calculateOEE(machine);
+                    : null;
 
                 const status = deriveStatus(availability, hasData);
                 const shiftLabel = isAllShifts
                   ? `${machineReadings.length} shift${machineReadings.length === 1 ? "" : "s"} · Full day`
                   : `${latestReading?.shiftName || "Day"} shift`;
+                const pct = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : `${v.toFixed(1)}%`;
 
                 return (
                   <TableRow key={machine.id} hover>
@@ -428,16 +429,16 @@ export default function App() {
                       />
                     </TableCell>
                     <TableCell>
-                      <Chip label={`${availability.toFixed(1)}%`}
-                        color={getOEEColor(availability)} size="small" variant="outlined" />
+                      <Chip label={pct(availability)}
+                        color={hasData ? getOEEColor(availability) : "default"} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell>
-                      <Chip label={`${performance.toFixed(1)}%`}
-                        color={getOEEColor(performance)} size="small" variant="outlined" />
+                      <Chip label={pct(performance)}
+                        color={hasData ? getOEEColor(performance) : "default"} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell>
-                      <Chip label={`${quality.toFixed(1)}%`}
-                        color={getOEEColor(quality)} size="small" variant="outlined" />
+                      <Chip label={pct(quality)}
+                        color={hasData ? getOEEColor(quality) : "default"} size="small" variant="outlined" />
                     </TableCell>
                     <TableCell><OEEGauge value={isNaN(oee) ? 0 : oee} /></TableCell>
                   </TableRow>

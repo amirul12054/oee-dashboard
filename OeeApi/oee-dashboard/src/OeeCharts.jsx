@@ -10,6 +10,17 @@ import {
 } from "recharts";
 import API_URL from "./config";
 
+// recordedAt is stored with a mislabeled UTC Kind (see backend import code),
+// so parsing it with `new Date()` and converting to local time shifts the
+// displayed date by the browser's UTC offset. shiftDate/shiftName were
+// derived from the same raw value before that mislabeling mattered, so they
+// are the correct source of truth for display.
+function formatShiftDate(shiftDate) {
+    if (!shiftDate) return "";
+    const [y, m, d] = shiftDate.split("-");
+    return `${d}/${m}/${y}`;
+}
+
 function defaultFromDate() {
     const d = new Date();
     d.setDate(d.getDate() - 30);
@@ -45,7 +56,7 @@ export default function OeeCharts({ machines }) {
                 const formatted = data
                     .reverse()
                     .map((r) => ({
-                        date: new Date(r.recordedAt).toLocaleDateString("en-MY"),
+                        date: formatShiftDate(r.shiftDate),
                         shift: r.shiftName || "Day",
                         OEE: parseFloat(r.oeeScore),
                         Availability: parseFloat(r.availability),
