@@ -440,7 +440,7 @@ export default function App() {
                       <Chip label={pct(quality)}
                         color={hasData ? getOEEColor(quality) : "default"} size="small" variant="outlined" />
                     </TableCell>
-                    <TableCell><OEEGauge value={isNaN(oee) ? 0 : oee} /></TableCell>
+                    <TableCell><OEEGauge value={oee === null || oee === undefined || isNaN(oee) ? 0 : oee} /></TableCell>
                   </TableRow>
                 );
               })}
