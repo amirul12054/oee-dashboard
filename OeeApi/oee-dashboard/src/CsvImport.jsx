@@ -28,7 +28,6 @@ export default function CsvImport({ onClose }) {
     const [preview, setPreview] = useState(null);
     const [mapping, setMapping] = useState({});
     const [machineId, setMachineId] = useState("");
-    const [shift, setShift] = useState("Morning");
     const [error, setError] = useState("");
     const [result, setResult] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -77,7 +76,6 @@ export default function CsvImport({ onClose }) {
             const formData = new FormData();
             formData.append("file", file);
             formData.append("machineId", machineId);
-            formData.append("shift", shift);
             Object.entries(mapping).forEach(([key, val]) => {
                 formData.append(key, val.toString());
             });
@@ -173,10 +171,14 @@ export default function CsvImport({ onClose }) {
                         </CardContent>
                     </Card>
 
-                    {/* Machine + Shift selection */}
+                    {/* Machine selection */}
                     <Card elevation={2}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>Import Settings</Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                                Shift (Morning/Night) is detected automatically from each row's
+                                Date/Time column, so you only need to pick the machine here.
+                            </Typography>
                             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
                                 <FormControl sx={{ minWidth: 200 }}>
                                     <InputLabel>Machine</InputLabel>
@@ -185,15 +187,6 @@ export default function CsvImport({ onClose }) {
                                         {preview.machines.map((m) => (
                                             <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
                                         ))}
-                                    </Select>
-                                </FormControl>
-                                <FormControl sx={{ minWidth: 200 }}>
-                                    <InputLabel>Shift</InputLabel>
-                                    <Select value={shift} label="Shift"
-                                        onChange={(e) => setShift(e.target.value)}>
-                                        <MenuItem value="Morning">Morning</MenuItem>
-                                        <MenuItem value="Afternoon">Afternoon</MenuItem>
-                                        <MenuItem value="Night">Night</MenuItem>
                                     </Select>
                                 </FormControl>
                             </Box>
