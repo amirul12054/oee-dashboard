@@ -709,6 +709,26 @@ app.MapGet("/oee-readings", async (OeeDbContext db,
 
     return Results.Ok(results);
 }).RequireAuthorization();
+
+app.MapGet("/debug-readings", async (OeeDbContext db) =>
+{
+    var readings = await db.OeeReadings
+        .OrderByDescending(r => r.RecordedAt)
+        .Take(10)
+        .Select(r => new
+        {
+            r.Id,
+            r.MachineId,
+            r.RecordedAt,
+            r.ShiftDate,
+            r.ShiftName,
+            r.OeeScore,
+            r.TotalUnits
+        })
+        .ToListAsync();
+    return Results.Ok(readings);
+});
+
 app.Run();
 
 // ============ RECORDS ============
