@@ -249,6 +249,14 @@ export default function CsvImport({ onClose }) {
                                 </Typography>
                             </Box>
                         </Box>
+                        {result.skipped > 0 && (
+                            <Alert severity="warning" sx={{ mb: 2 }}>
+                                {result.skipped} row(s) were skipped due to parsing errors.
+                                {result.firstError && <> First issue: {result.firstError}</>}
+                                {" "}Double-check your column mapping and that numeric columns
+                                don't contain unexpected text.
+                            </Alert>
+                        )}
                         <Box sx={{ display: "flex", gap: 2, mt: 3 }}>
                             <Button variant="contained" onClick={onClose}>
                                 Back to Dashboard

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -267,24 +268,28 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
     int colGoodUnits = int.Parse(form["colGoodUnits"]!);
 
     var readings = new List<OeeReadingEntity>();
+    var skipped = 0;
+    string? firstError = null;
     using var reader = new StreamReader(file.OpenReadStream());
     var isFirstLine = true;
     string? line;
+    var rowNum = 1;
 
     while ((line = await reader.ReadLineAsync()) != null)
     {
+        rowNum++;
         if (isFirstLine) { isFirstLine = false; continue; }
         if (string.IsNullOrWhiteSpace(line)) continue;
 
         var cols = line.Split(',').Select(v => v.Trim().Trim('"')).ToArray();
         try
         {
-            var planned = int.Parse(cols[colPlanned]);
-            var runtime = int.Parse(cols[colRunTime]);
-            var idealRate = int.Parse(cols[colIdealRate]);
-            var actualRate = int.Parse(cols[colActualRate]);
-            var total = int.Parse(cols[colTotalUnits]);
-            var good = int.Parse(cols[colGoodUnits]);
+            var planned = (int)Math.Round(decimal.Parse(cols[colPlanned], CultureInfo.InvariantCulture));
+            var runtime = (int)Math.Round(decimal.Parse(cols[colRunTime], CultureInfo.InvariantCulture));
+            var idealRate = (int)Math.Round(decimal.Parse(cols[colIdealRate], CultureInfo.InvariantCulture));
+            var actualRate = (int)Math.Round(decimal.Parse(cols[colActualRate], CultureInfo.InvariantCulture));
+            var total = (int)Math.Round(decimal.Parse(cols[colTotalUnits], CultureInfo.InvariantCulture));
+            var good = (int)Math.Round(decimal.Parse(cols[colGoodUnits], CultureInfo.InvariantCulture));
 
             var availability = planned > 0 ? (decimal)runtime / planned : 0;
             var performance = idealRate > 0 ? (decimal)actualRate / idealRate : 0;
@@ -317,14 +322,19 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
                 OeeScore = Math.Round(oee, 2)
             });
         }
-        catch { continue; }
+        catch (Exception rowEx)
+        {
+            skipped++;
+            firstError ??= $"Row {rowNum}: {rowEx.Message}";
+            continue;
+        }
     }
 
     try
     {
         db.OeeReadings.AddRange(readings);
         await db.SaveChangesAsync();
-        return Results.Ok(new { imported = readings.Count });
+        return Results.Ok(new { imported = readings.Count, skipped, firstError });
     }
     catch (Exception ex)
     {
