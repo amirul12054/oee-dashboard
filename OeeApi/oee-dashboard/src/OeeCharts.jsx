@@ -9,6 +9,16 @@ import {
     Tooltip, Legend, ResponsiveContainer, ReferenceLine
 } from "recharts";
 import API_URL from "./config";
+import InfoTip from "./InfoTip";
+
+const COLUMN_INFO = {
+    Date: "The shift date this reading was recorded for.",
+    Shift: "Morning (6am–6pm) or Night (6pm–6am), automatically detected from the reading's timestamp.",
+    Availability: "% of planned production time the machine actually ran. Formula: Run Time ÷ Planned Time × 100.",
+    Performance: "How fast the machine ran vs. its ideal rate. Formula: (Actual Output Rate ÷ Ideal Rate) × 100.",
+    Quality: "% of units produced that passed quality checks. Formula: Good Units ÷ Total Units × 100.",
+    OEE: "Overall Equipment Effectiveness — combines all 3 factors: Availability × Performance × Quality. 85%+ is considered world-class.",
+};
 
 // recordedAt is stored with a mislabeled UTC Kind (see backend import code),
 // so parsing it with `new Date()` and converting to local time shifts the
@@ -149,7 +159,10 @@ export default function OeeCharts({ machines }) {
                     {/* OEE Score Chart */}
                     <Card elevation={2}>
                         <CardContent>
-                            <Typography variant="h6" gutterBottom>Overall OEE Score</Typography>
+                            <Typography variant="h6" gutterBottom>
+                                Overall OEE Score
+                                <InfoTip title="Your OEE trend over the selected date range. Green dashed line is the 85% world-class target; orange is the 60% warning threshold." />
+                            </Typography>
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={history}>
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -173,6 +186,7 @@ export default function OeeCharts({ machines }) {
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 Availability / Performance / Quality Breakdown
+                                <InfoTip title="Shows the 3 factors that make up OEE separately, so you can spot which one is dragging your score down." />
                             </Typography>
                             <ResponsiveContainer width="100%" height={300}>
                                 <LineChart data={history}>
@@ -201,7 +215,9 @@ export default function OeeCharts({ machines }) {
                                     <thead>
                                         <tr style={{ backgroundColor: "#1976d2", color: "white" }}>
                                             {["Date", "Shift", "Availability", "Performance", "Quality", "OEE"].map(h => (
-                                                <th key={h} style={{ padding: "8px 12px", textAlign: "left" }}>{h}</th>
+                                                <th key={h} style={{ padding: "8px 12px", textAlign: "left" }}>
+                                                    {h} <InfoTip title={COLUMN_INFO[h]} iconColor="white" />
+                                                </th>
                                             ))}
                                         </tr>
                                     </thead>

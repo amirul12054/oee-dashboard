@@ -17,6 +17,18 @@ import AdminPanel from "./AdminPanel";
 import API_URL from "./config";
 import MaintenanceTab from "./MaintenanceTab";
 import ProfilePage from "./ProfilePage";
+import InfoTip from "./InfoTip";
+
+const INFO = {
+  factoryAvgOee: "Average OEE across all machines for the date and shift you're currently viewing.",
+  machinesRunning: "How many machines are currently in \"Running\" status out of the total being tracked.",
+  totalUnits: "Total units produced across all machines for the selected date, with good (quality-passed) units shown separately.",
+  status: "This machine's condition for the selected date/shift, based on Availability: Running (≥70%), Reduced (20–70%), Down (<20%), or No Data if nothing was recorded.",
+  availability: "% of planned production time the machine actually ran. Formula: Run Time ÷ Planned Time × 100.",
+  performance: "How fast the machine ran vs. its ideal rate. Formula: (Actual Output Rate ÷ Ideal Rate) × 100.",
+  quality: "% of units produced that passed quality checks. Formula: Good Units ÷ Total Units × 100.",
+  oee: "Overall Equipment Effectiveness — combines all 3 factors: Availability × Performance × Quality. 85%+ is considered world-class.",
+};
 
 
 
@@ -317,7 +329,7 @@ export default function App() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={2}>
               <CardContent>
-                <Typography color="text.secondary" gutterBottom>Factory Average OEE</Typography>
+                <Typography color="text.secondary" gutterBottom>Factory Average OEE <InfoTip title={INFO.factoryAvgOee} /></Typography>
                 <Typography variant="h3" sx={{ fontWeight: "bold", color: getOEEHexColor(averageOEE) }}>
                   {averageOEE.toFixed(1)}%
                 </Typography>
@@ -328,7 +340,7 @@ export default function App() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={2}>
               <CardContent>
-                <Typography color="text.secondary" gutterBottom>Machines Running</Typography>
+                <Typography color="text.secondary" gutterBottom>Machines Running <InfoTip title={INFO.machinesRunning} /></Typography>
                 <Typography variant="h3" sx={{ fontWeight: "bold" }} color="success.main">
                   {runningCount}/{machines.length}
                 </Typography>
@@ -341,7 +353,7 @@ export default function App() {
           <Grid size={{ xs: 12, md: 4 }}>
             <Card elevation={2}>
               <CardContent>
-                <Typography color="text.secondary" gutterBottom>Total Units Produced</Typography>
+                <Typography color="text.secondary" gutterBottom>Total Units Produced <InfoTip title={INFO.totalUnits} /></Typography>
                 <Typography variant="h3" sx={{ fontWeight: "bold" }} color="primary">
                   {dateReadings.length > 0
                     ? dateReadings.reduce((sum, r) => sum + r.totalUnits, 0)
@@ -363,11 +375,11 @@ export default function App() {
             <TableHead>
               <TableRow sx={{ backgroundColor: "#1976d2" }}>
                 <TableCell sx={{ color: "white", fontWeight: "bold" }}>Machine</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Status</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Availability</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Performance</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Quality</TableCell>
-                <TableCell sx={{ color: "white", fontWeight: "bold" }}>OEE</TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Status <InfoTip title={INFO.status} iconColor="white" /></TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Availability <InfoTip title={INFO.availability} iconColor="white" /></TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Performance <InfoTip title={INFO.performance} iconColor="white" /></TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>Quality <InfoTip title={INFO.quality} iconColor="white" /></TableCell>
+                <TableCell sx={{ color: "white", fontWeight: "bold" }}>OEE <InfoTip title={INFO.oee} iconColor="white" /></TableCell>
               </TableRow>
             </TableHead>
             <TableBody>

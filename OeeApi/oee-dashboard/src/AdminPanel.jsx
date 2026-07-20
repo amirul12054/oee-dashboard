@@ -13,6 +13,7 @@ import AddIcon from "@mui/icons-material/Add";
 import LockResetIcon from "@mui/icons-material/LockReset";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import API_URL from "./config";
+import InfoTip from "./InfoTip";
 
 const API = API_URL
 const token = () => localStorage.getItem("oee_token");
@@ -459,9 +460,9 @@ export default function AdminPanel({ onClose, currentUsername }) {
                             <TableHead>
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
                                     <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Connection</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Status <InfoTip title="A manually-set flag for this machine, independent of the live dashboard's data-driven status. Toggle it here to mark a machine as running or stopped." /></TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="The maximum units/hour this machine can produce under optimal conditions. Used to calculate Performance (Actual Rate ÷ Ideal Rate)." /></TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Connection <InfoTip title="How this machine's data gets into the dashboard: OPCUA Auto-connect (live PLC feed), CSV Import (manual/batch upload), or Modbus." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
