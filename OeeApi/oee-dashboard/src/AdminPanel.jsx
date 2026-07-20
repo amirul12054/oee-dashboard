@@ -168,7 +168,8 @@ export default function AdminPanel({ onClose, currentUsername }) {
             setSuccess(`Machine ${machine.name} deleted`);
             fetchMachines();
         } else {
-            setError("Failed to delete machine");
+            const text = await res.text().catch(() => "");
+            setError(text || `Failed to delete machine (HTTP ${res.status})`);
         }
     };
     const fetchContacts = () => {

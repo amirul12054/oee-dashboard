@@ -182,9 +182,39 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
 {
     var machine = await db.Machines.FindAsync(id);
     if (machine == null) return Results.NotFound();
-    db.Machines.Remove(machine);
-    await db.SaveChangesAsync();
-    return Results.Ok("Machine deleted");
+
+    try
+    {
+        // Clean up everything that references this machine first so the
+        // delete isn't blocked by a foreign-key conflict and doesn't leave
+        // orphaned rows behind.
+        db.OeeReadings.RemoveRange(db.OeeReadings.Where(r => r.MachineId == id));
+
+        var breakdownIds = await db.Breakdowns.Where(b => b.MachineId == id)
+            .Select(b => b.Id).ToListAsync();
+        if (breakdownIds.Count > 0)
+        {
+            db.BreakdownAssignees.RemoveRange(db.BreakdownAssignees.Where(a => breakdownIds.Contains(a.BreakdownId)));
+            db.EightDReports.RemoveRange(db.EightDReports.Where(r => breakdownIds.Contains(r.BreakdownId)));
+        }
+        db.Breakdowns.RemoveRange(db.Breakdowns.Where(b => b.MachineId == id));
+
+        var pmScheduleIds = await db.PmSchedules.Where(p => p.MachineId == id)
+            .Select(p => p.Id).ToListAsync();
+        if (pmScheduleIds.Count > 0)
+        {
+            db.PmCompletions.RemoveRange(db.PmCompletions.Where(c => pmScheduleIds.Contains(c.PmScheduleId)));
+        }
+        db.PmSchedules.RemoveRange(db.PmSchedules.Where(p => p.MachineId == id));
+
+        db.Machines.Remove(machine);
+        await db.SaveChangesAsync();
+        return Results.Ok("Machine deleted");
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem($"Failed to delete machine: {ex.Message} | {ex.InnerException?.Message}");
+    }
 }).RequireAuthorization("EngineerOrAdmin");
 
 // ============ MACHINES ============

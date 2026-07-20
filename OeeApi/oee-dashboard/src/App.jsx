@@ -8,6 +8,8 @@ import {
 import FactoryIcon from "@mui/icons-material/Factory";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
+import HelpOutlineIcon from "@mui/icons-material/HelpOutline";
 import Login from "./Login";
 import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
@@ -49,6 +51,36 @@ function getOEEHexColor(oee) {
   if (oee >= 85) return "#2e7d32";
   if (oee >= 60) return "#ed6c02";
   return "#d32f2f";
+}
+
+// Combine multiple shift readings for the same day into one set of figures,
+// using proper time-weighted math rather than just picking the latest row.
+function aggregateReadings(readings) {
+  if (!readings || readings.length === 0) return null;
+  const totalPlanned = readings.reduce((s, r) => s + (r.plannedTimeMinutes || 0), 0);
+  const totalRun = readings.reduce((s, r) => s + (r.runTimeMinutes || 0), 0);
+  const totalUnits = readings.reduce((s, r) => s + (r.totalUnits || 0), 0);
+  const totalGood = readings.reduce((s, r) => s + (r.goodUnits || 0), 0);
+  // Use the ideal rate from any one reading (assumed constant per machine).
+  const idealRate = readings[0].idealRate || 0;
+
+  const availability = totalPlanned > 0 ? (totalRun / totalPlanned) * 100 : 0;
+  const actualRate = totalRun > 0 ? totalUnits / (totalRun / 60) : 0;
+  const performance = idealRate > 0 ? (actualRate / idealRate) * 100 : 0;
+  const quality = totalUnits > 0 ? (totalGood / totalUnits) * 100 : 0;
+  const oee = (availability / 100) * (performance / 100) * (quality / 100) * 100;
+
+  return { availability, performance, quality, oee, totalUnits, totalGood };
+}
+
+// Status is derived from actual production data for the selected date/shift
+// instead of a manually-set flag that nothing keeps in sync with reality
+// (it never updates from CSV imports or the live simulator).
+function deriveStatus(availability, hasData) {
+  if (!hasData) return { label: "No Data", color: "default", icon: <HelpOutlineIcon /> };
+  if (availability >= 70) return { label: "Running", color: "success", icon: <CheckCircleIcon /> };
+  if (availability >= 20) return { label: "Reduced", color: "warning", icon: <WarningAmberIcon /> };
+  return { label: "Down", color: "error", icon: <CancelIcon /> };
 }
 
 function OEEGauge({ value }) {
@@ -340,38 +372,58 @@ export default function App() {
             </TableHead>
             <TableBody>
               {machines.map((machine) => {
-                // Find reading for this machine on selected date
+                // Find reading(s) for this machine on the selected date
                 const machineReadings = dateReadings.filter(r => r.machineId === machine.id);
-                const latestReading = machineReadings[0];
 
-                const availability = latestReading
-                  ? parseFloat(latestReading.availability)
-                  : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100;
-                const performance = latestReading
-                  ? parseFloat(latestReading.performance)
-                  : (machine.actualRate / machine.idealRate) * 100;
-                const quality = latestReading
-                  ? parseFloat(latestReading.quality)
-                  : (machine.goodUnits / machine.unitsProduced) * 100;
-                const oee = latestReading
-                  ? parseFloat(latestReading.oeeScore)
-                  : calculateOEE(machine);
+                // "All" shifts -> combine every shift into one time-weighted
+                // figure instead of just showing whichever reading happens
+                // to have the latest timestamp (always Night).
+                const isAllShifts = selectedShift === "All";
+                const agg = isAllShifts ? aggregateReadings(machineReadings) : null;
+                const latestReading = machineReadings[0];
+                const hasData = isAllShifts ? !!agg : !!latestReading;
+
+                const availability = isAllShifts
+                  ? (agg ? agg.availability : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100)
+                  : latestReading
+                    ? parseFloat(latestReading.availability)
+                    : (machine.runTimeMinutes / machine.plannedTimeMinutes) * 100;
+                const performance = isAllShifts
+                  ? (agg ? agg.performance : (machine.actualRate / machine.idealRate) * 100)
+                  : latestReading
+                    ? parseFloat(latestReading.performance)
+                    : (machine.actualRate / machine.idealRate) * 100;
+                const quality = isAllShifts
+                  ? (agg ? agg.quality : (machine.goodUnits / machine.unitsProduced) * 100)
+                  : latestReading
+                    ? parseFloat(latestReading.quality)
+                    : (machine.goodUnits / machine.unitsProduced) * 100;
+                const oee = isAllShifts
+                  ? (agg ? agg.oee : calculateOEE(machine))
+                  : latestReading
+                    ? parseFloat(latestReading.oeeScore)
+                    : calculateOEE(machine);
+
+                const status = deriveStatus(availability, hasData);
+                const shiftLabel = isAllShifts
+                  ? `${machineReadings.length} shift${machineReadings.length === 1 ? "" : "s"} · Full day`
+                  : `${latestReading?.shiftName || "Day"} shift`;
 
                 return (
                   <TableRow key={machine.id} hover>
                     <TableCell>
                       <Typography sx={{ fontWeight: "bold" }}>{machine.name}</Typography>
-                      {latestReading && (
+                      {hasData && (
                         <Typography variant="caption" color="text.secondary">
-                          📅 {selectedDate} · {latestReading.shiftName || "Day"} shift
+                          📅 {selectedDate} · {shiftLabel}
                         </Typography>
                       )}
                     </TableCell>
                     <TableCell>
                       <Chip
-                        icon={machine.isRunning ? <CheckCircleIcon /> : <CancelIcon />}
-                        label={machine.isRunning ? "Running" : "Stopped"}
-                        color={machine.isRunning ? "success" : "error"}
+                        icon={status.icon}
+                        label={status.label}
+                        color={status.color}
                         size="small"
                       />
                     </TableCell>
