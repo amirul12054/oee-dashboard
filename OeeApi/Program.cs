@@ -185,10 +185,14 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
 
     try
     {
-        // Clean up everything that references this machine first so the
-        // delete isn't blocked by a foreign-key conflict and doesn't leave
-        // orphaned rows behind.
+        // Each layer is saved separately, in dependency order, before moving
+        // to the next. EF Core has no navigation properties here to infer
+        // the FK dependency graph, so a single combined SaveChanges can (and
+        // did) send deletes to Postgres in the wrong order and get rejected
+        // by the real foreign-key constraints.
+
         db.OeeReadings.RemoveRange(db.OeeReadings.Where(r => r.MachineId == id));
+        await db.SaveChangesAsync();
 
         var breakdownIds = await db.Breakdowns.Where(b => b.MachineId == id)
             .Select(b => b.Id).ToListAsync();
@@ -196,16 +200,20 @@ app.MapDelete("/admin/machines/{id}", async (OeeDbContext db, int id) =>
         {
             db.BreakdownAssignees.RemoveRange(db.BreakdownAssignees.Where(a => breakdownIds.Contains(a.BreakdownId)));
             db.EightDReports.RemoveRange(db.EightDReports.Where(r => breakdownIds.Contains(r.BreakdownId)));
+            await db.SaveChangesAsync();
         }
         db.Breakdowns.RemoveRange(db.Breakdowns.Where(b => b.MachineId == id));
+        await db.SaveChangesAsync();
 
         var pmScheduleIds = await db.PmSchedules.Where(p => p.MachineId == id)
             .Select(p => p.Id).ToListAsync();
         if (pmScheduleIds.Count > 0)
         {
             db.PmCompletions.RemoveRange(db.PmCompletions.Where(c => pmScheduleIds.Contains(c.PmScheduleId)));
+            await db.SaveChangesAsync();
         }
         db.PmSchedules.RemoveRange(db.PmSchedules.Where(p => p.MachineId == id));
+        await db.SaveChangesAsync();
 
         db.Machines.Remove(machine);
         await db.SaveChangesAsync();
