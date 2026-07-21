@@ -22,7 +22,7 @@ export default function InfoTip({ title, iconColor }) {
                     disableTouchListener
                     arrow
                     placement="top"
-                    PopperProps={{ sx: { "& .MuiTooltip-tooltip": { fontSize: "0.8rem", maxWidth: 260 } } }}
+                    PopperProps={{ sx: { "& .MuiTooltip-tooltip": { fontSize: "1.0rem", maxWidth: 260 } } }}
                 >
                     <IconButton
                         size="small"
@@ -30,7 +30,7 @@ export default function InfoTip({ title, iconColor }) {
                         sx={{ p: 0.25, ml: 0.3, color: iconColor || "inherit", opacity: 0.85 }}
                         aria-label="info"
                     >
-                        <InfoOutlinedIcon sx={{ fontSize: 15 }} />
+                        <InfoOutlinedIcon sx={{ fontSize: 20 }} />
                     </IconButton>
                 </Tooltip>
             </Box>
