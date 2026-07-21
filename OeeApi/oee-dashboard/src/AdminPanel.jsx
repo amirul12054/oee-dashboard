@@ -513,8 +513,8 @@ export default function AdminPanel({ onClose, currentUsername }) {
                         <Table size="small">
                             <TableHead>
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
+                                    <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Status <InfoTip title="A manually-set flag for this machine, independent of the live dashboard's data-driven status. Toggle it here to mark a machine as running or stopped." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="The maximum units/hour this machine can produce under optimal conditions. Used to calculate Performance (Actual Rate ÷ Ideal Rate)." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Connection <InfoTip title="How this machine's data gets into the dashboard: OPCUA Auto-connect (live PLC feed), CSV Import (manual/batch upload), or Modbus." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Current Product <InfoTip title="Which product/SKU is running now. When set, live and CSV readings use this product's Ideal Rate instead of the machine's default — useful for multi-product lines." /></TableCell>
@@ -524,6 +524,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                             <TableBody>
                                 {machines.map((machine) => (
                                     <TableRow key={machine.id} hover>
+                                        <TableCell color="text.secondary">{machine.id}</TableCell>
                                         <TableCell sx={{ fontWeight: "bold" }}>{machine.name}</TableCell>
                                         <TableCell>
                                             <Chip label={machine.isRunning ? "Running" : "Stopped"}
