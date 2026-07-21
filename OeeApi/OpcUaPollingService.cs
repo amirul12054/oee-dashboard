@@ -82,15 +82,13 @@ public class OpcUaPollingService : BackgroundService
             TransportQuotas = new TransportQuotas { OperationTimeout = 15000 },
             ClientConfiguration = new ClientConfiguration { DefaultSessionTimeout = 60000 },
         };
-        await config.Validate(ApplicationType.Client);
+        await config.ValidateAsync(ApplicationType.Client);
 
-        var application = new ApplicationInstance
-        {
-            ApplicationName = "OeeApiOpcUaClient",
-            ApplicationType = ApplicationType.Client,
-            ApplicationConfiguration = config,
-        };
-        await application.CheckApplicationInstanceCertificate(false, 0);
+        // NOTE: we deliberately skip ApplicationInstance/client-certificate
+        // setup here. It's not required for a SecurityPolicy=None connection
+        // (which is what CoreClientUtils.SelectEndpoint(..., useSecurity: false)
+        // below selects) — only needed once you move to a secured endpoint,
+        // at which point you'd generate/load a real client certificate here.
 
         _appConfig = config;
         return config;
