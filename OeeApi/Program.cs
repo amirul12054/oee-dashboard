@@ -15,6 +15,10 @@ builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 builder.Services.AddDbContext<OeeDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+builder.Services.AddSingleton<MachineStateStore>();
+builder.Services.AddHostedService<ModbusPollingService>();
+builder.Services.AddHostedService<OpcUaPollingService>();
+
 builder.Services.AddCors();
 builder.Services.AddAntiforgery();
 builder.Services.AddOpenApi();
@@ -694,10 +698,13 @@ app.MapGet("/setup-machine-connections", async (OeeDbContext db) =>
         ADD COLUMN IF NOT EXISTS ""ModbusRegGoodUnits"" INTEGER,
         ADD COLUMN IF NOT EXISTS ""ModbusRegFaultStatus"" INTEGER,
         ADD COLUMN IF NOT EXISTS ""CsvFilePath"" VARCHAR(500),
-        ADD COLUMN IF NOT EXISTS ""CsvAutoImport"" BOOLEAN DEFAULT FALSE;
+        ADD COLUMN IF NOT EXISTS ""CsvAutoImport"" BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS ""SnapshotIntervalMinutes"" INTEGER DEFAULT 5,
+        ADD COLUMN IF NOT EXISTS ""LastConnectedAt"" TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS ""LastConnectionError"" VARCHAR(1000);
     ");
     return Results.Ok("Machine connection columns added");
-});
+}).RequireAuthorization("AdminOnly");
 
 // PUT update machine with connection settings
 app.MapPut("/admin/machines/{id}", async (OeeDbContext db, int id, MachineEntity updated) =>
@@ -724,6 +731,7 @@ app.MapPut("/admin/machines/{id}", async (OeeDbContext db, int id, MachineEntity
     machine.ModbusRegFaultStatus = updated.ModbusRegFaultStatus;
     machine.CsvFilePath = updated.CsvFilePath;
     machine.CsvAutoImport = updated.CsvAutoImport;
+    machine.SnapshotIntervalMinutes = updated.SnapshotIntervalMinutes > 0 ? updated.SnapshotIntervalMinutes : machine.SnapshotIntervalMinutes;
     await db.SaveChangesAsync();
     return Results.Ok(machine);
 }).RequireAuthorization("EngineerOrAdmin");

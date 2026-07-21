@@ -46,7 +46,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         modbusIp: "", modbusPort: 502, modbusSlaveId: 1,
         modbusRegRunStatus: "", modbusRegUnitCount: "",
         modbusRegGoodUnits: "", modbusRegFaultStatus: "",
-        csvFilePath: "", csvAutoImport: false
+        csvFilePath: "", csvAutoImport: false, snapshotIntervalMinutes: 5
     });
 
 
@@ -140,7 +140,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                 modbusIp: "", modbusPort: 502, modbusSlaveId: 1,
                 modbusRegRunStatus: "", modbusRegUnitCount: "",
                 modbusRegGoodUnits: "", modbusRegFaultStatus: "",
-                csvFilePath: "", csvAutoImport: false
+                csvFilePath: "", csvAutoImport: false, snapshotIntervalMinutes: 5
             });
             fetchMachines();
         } else setError("Failed to add machine");
@@ -229,6 +229,36 @@ export default function AdminPanel({ onClose, currentUsername }) {
                     <MenuItem value="Modbus">⚙️ Modbus TCP (Advanced)</MenuItem>
                 </Select>
             </FormControl>
+
+            {/* Live connection settings shared by OPC-UA and Modbus */}
+            {(data.connectionType === "OPCUA" || data.connectionType === "Modbus") && (
+                <Box sx={{ p: 2, border: "1px solid #9c27b0", borderRadius: 2, backgroundColor: "#faf5fc" }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#9c27b0" }}>
+                        📡 Live Data Settings
+                    </Typography>
+                    <TextField label="Snapshot Interval (minutes)" type="number" value={data.snapshotIntervalMinutes || 5}
+                        onChange={(e) => onChange({ ...data, snapshotIntervalMinutes: parseInt(e.target.value) })}
+                        helperText="How often live readings are saved as a data point (e.g. every 5 minutes). Shorter = more granular trend data."
+                        fullWidth size="small" sx={{ mb: 1.5 }} />
+                    {data.id && (
+                        <Box sx={{ mt: 1 }}>
+                            {data.lastConnectionError ? (
+                                <Alert severity="error" sx={{ fontSize: "0.8rem" }}>
+                                    Connection error: {data.lastConnectionError}
+                                </Alert>
+                            ) : data.lastConnectedAt ? (
+                                <Alert severity="success" sx={{ fontSize: "0.8rem" }}>
+                                    Last connected: {new Date(data.lastConnectedAt).toLocaleString()}
+                                </Alert>
+                            ) : (
+                                <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                                    Not connected yet — save this machine and the background poller will pick it up shortly.
+                                </Alert>
+                            )}
+                        </Box>
+                    )}
+                </Box>
+            )}
 
             {/* CSV Settings */}
             {(data.connectionType === "CSV" || !data.connectionType) && (
@@ -482,6 +512,16 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                                     machine.connectionType === "Modbus" ? "warning" : "default"}
                                                 size="small"
                                             />
+                                            {(machine.connectionType === "OPCUA" || machine.connectionType === "Modbus") && (
+                                                <Typography variant="caption" display="block" sx={{ mt: 0.3 }}
+                                                    color={machine.lastConnectionError ? "error.main" : machine.lastConnectedAt ? "success.main" : "text.secondary"}>
+                                                    {machine.lastConnectionError
+                                                        ? `⚠ ${machine.lastConnectionError}`
+                                                        : machine.lastConnectedAt
+                                                            ? `● Live · ${new Date(machine.lastConnectedAt).toLocaleTimeString()}`
+                                                            : "○ Waiting for connection..."}
+                                                </Typography>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <IconButton size="small" color="primary"

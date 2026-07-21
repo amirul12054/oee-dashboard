@@ -33,4 +33,9 @@ public class MachineEntity
     // CSV settings
     public string? CsvFilePath { get; set; }
     public bool CsvAutoImport { get; set; } = false;
+
+    // Live polling (OPC-UA / Modbus) settings & health
+    public int SnapshotIntervalMinutes { get; set; } = 5;
+    public DateTime? LastConnectedAt { get; set; }
+    public string? LastConnectionError { get; set; }
 }
