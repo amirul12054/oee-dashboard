@@ -1,121 +1,179 @@
-"""
-CSV "auto-import" simulator — pushes to your real deployed API.
-
-Your original simulate_csv.py only wrote to a local file. Nothing in the
-backend watches that file (CsvAutoImport/CsvFilePath are saved to the DB but
-nothing reads them), and even if something did, your Railway-hosted backend
-has no way to read a file sitting on your C: drive anyway — same reason
-Modbus/OPC-UA need a local-to-cloud push instead of cloud-to-local pull.
-
-So this version keeps writing the local file (useful to eyeball what it's
-generating) AND pushes the same row straight to /import/process on your
-real API, the same way a proper "auto-import agent" would.
-
-Setup:
-    pip install requests
-Edit the CONFIG block, then just run it and leave it going.
-"""
-
 import csv
-import io
-import time
-import random
 import os
-from datetime import datetime
-import requests
+import random
+import time
+from datetime import datetime, timedelta
 
-# ============ CONFIG ============
-API_URL = "https://oee-dashboard-production.up.railway.app"
-USERNAME = "admin"
-PASSWORD = "CHANGE_ME"
-MACHINE_ID = 1          # the machine ID this simulator represents (check GET /machines)
-SHIFT = "Live-CSV"      # just a label; ShiftName (Morning/Night) is auto-detected from the timestamp
+# ==========================================
+# CONFIGURATION
+# ==========================================
 
-OUTPUT_PATH = r"C:\MachineData\CNC01_output.csv"
-IDEAL_RATE = 20  # units per hour
-PUSH_INTERVAL_SECONDS = 10
-# =================================
+OUTPUT_PATH = r"C:\Users\P3620\Documents\PROJECT\OEE Dashboard\FCT42_output.csv"
+
+IDEAL_RATE = 120                 # units/hour
+SHIFT_LENGTH_MINUTES = 8 * 60    # 8 hours
+
+# Simulation speed
+# 5 = every 5 seconds a new production minute is generated
+# 60 = real time
+SIMULATION_MINUTE_SECONDS = 5
+
+# ==========================================
 
 os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
+# Create CSV with header if it doesn't exist
+if not os.path.exists(OUTPUT_PATH):
+    with open(OUTPUT_PATH, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow([
+            "Date",
+            "PlannedTime",
+            "RunTime",
+            "IdealRate",
+            "ActualRate",
+            "TotalUnits",
+            "GoodUnits"
+        ])
 
-def login():
-    r = requests.post(f"{API_URL}/auth/login", json={"Username": USERNAME, "Password": PASSWORD})
-    r.raise_for_status()
-    return r.json()["token"]
-
-
-def push_row(token, row):
-    buf = io.StringIO()
-    w = csv.writer(buf)
-    w.writerow(["Date", "PlannedTime", "RunTime", "IdealRate", "ActualRate", "TotalUnits", "GoodUnits"])
-    w.writerow(row)
-    csv_bytes = buf.getvalue().encode("utf-8")
-
-    headers = {"Authorization": f"Bearer {token}"}
-    files = {"file": ("reading.csv", csv_bytes, "text/csv")}
-    data = {
-        "machineId": str(MACHINE_ID),
-        "shift": SHIFT,
-        "colDate": "0", "colPlanned": "1", "colRunTime": "2",
-        "colIdealRate": "3", "colActualRate": "4", "colTotalUnits": "5", "colGoodUnits": "6",
-    }
-    r = requests.post(f"{API_URL}/import/process", headers=headers, files=files, data=data)
-    r.raise_for_status()
-    return r.json()
-
-
-print(f"CSV auto-import simulator started for machine ID {MACHINE_ID}")
-print(f"Local copy: {OUTPUT_PATH}")
-print(f"Pushing to: {API_URL}/import/process every {PUSH_INTERVAL_SECONDS}s")
-print("Press Ctrl+C to stop\n")
-
-token = login()
 shift_start = datetime.now()
+
+planned_minutes = 0
+run_minutes = 0
+
 total_units = 0
 good_units = 0
-downtime_minutes = 0
+
+downtime_remaining = 0
+
+print("=" * 60)
+print("CSV Production Simulator Started")
+print(f"Output : {OUTPUT_PATH}")
+print(f"Ideal Rate : {IDEAL_RATE} units/hour")
+print(f"Simulation : 1 production minute = {SIMULATION_MINUTE_SECONDS} sec")
+print("=" * 60)
 
 while True:
-    is_running = random.random() > 0.1  # 90% uptime
-    units_this_cycle = random.randint(15, 20) if is_running else 0
-    defects = random.randint(0, 2)
 
-    total_units += units_this_cycle
-    good_units += max(0, units_this_cycle - defects)
+    # New shift every 8 hours
+    if planned_minutes >= SHIFT_LENGTH_MINUTES:
 
-    elapsed_minutes = (datetime.now() - shift_start).seconds / 60
-    run_time = elapsed_minutes - downtime_minutes
+        print("\n========== NEW SHIFT ==========\n")
 
-    availability = run_time / max(elapsed_minutes, 1)
-    actual_rate = total_units / max(run_time / 60, 0.01)
-    performance = actual_rate / IDEAL_RATE
-    quality = good_units / max(total_units, 1)
-    oee = availability * performance * quality * 100
+        shift_start = datetime.now()
+
+        planned_minutes = 0
+        run_minutes = 0
+
+        total_units = 0
+        good_units = 0
+
+    planned_minutes += 1
+
+    # -------------------------------------
+    # Downtime simulation
+    # -------------------------------------
+
+    if downtime_remaining > 0:
+        machine_running = False
+        downtime_remaining -= 1
+
+    else:
+        machine_running = True
+
+        # Around 3% chance every minute of stopping
+        if random.random() < 0.03:
+
+            # Mostly micro stops
+            if random.random() < 0.80:
+                downtime_remaining = random.randint(1, 3)
+
+            # Occasionally bigger stop
+            else:
+                downtime_remaining = random.randint(5, 10)
+
+            machine_running = False
+
+    # -------------------------------------
+    # Production
+    # -------------------------------------
+
+    if machine_running:
+
+        run_minutes += 1
+
+        # Performance between 90~105%
+        performance = random.uniform(0.90, 1.05)
+
+        actual_rate = round(IDEAL_RATE * performance, 1)
+
+        # Units produced this minute
+        units_this_minute = round(actual_rate / 60)
+
+        # Small random variation
+        units_this_minute += random.choice([-1, 0, 0, 0, 1])
+
+        units_this_minute = max(units_this_minute, 0)
+
+        total_units += units_this_minute
+
+        # 0~2% defects
+        defect_rate = random.uniform(0.0, 0.02)
+
+        defects = round(units_this_minute * defect_rate)
+
+        good_units += units_this_minute - defects
+
+    else:
+
+        actual_rate = 0
+
+    # -------------------------------------
+    # Save CSV
+    # -------------------------------------
+
+    timestamp = shift_start + timedelta(minutes=planned_minutes)
 
     row = [
-        datetime.now().strftime("%Y-%m-%d %H:%M"),
-        int(elapsed_minutes),
-        int(run_time),
+
+        timestamp.strftime("%Y-%m-%d %H:%M"),
+
+        planned_minutes,
+
+        run_minutes,
+
         IDEAL_RATE,
-        round(actual_rate, 1),
+
+        actual_rate,
+
         total_units,
-        good_units,
+
+        good_units
     ]
 
-    # keep a local copy for your own reference
-    with open(OUTPUT_PATH, "w", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["Date", "PlannedTime", "RunTime", "IdealRate", "ActualRate", "TotalUnits", "GoodUnits"])
-        w.writerow(row)
+    with open(OUTPUT_PATH, "a", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(row)
 
-    try:
-        result = push_row(token, row)
-        print(f"[{datetime.now().strftime('%H:%M:%S')}] Units: {total_units} | Good: {good_units} | "
-              f"OEE: {oee:.1f}% | Running: {is_running} -> imported {result.get('imported')} row")
-    except requests.HTTPError as e:
-        print(f"Push failed: {e}")
-        if e.response is not None and e.response.status_code == 401:
-            token = login()
+    availability = run_minutes / planned_minutes
 
-    time.sleep(PUSH_INTERVAL_SECONDS)
+    performance_pct = actual_rate / IDEAL_RATE if machine_running else 0
+
+    quality = good_units / total_units if total_units else 1
+
+    oee = availability * performance_pct * quality * 100
+
+    status = "RUNNING" if machine_running else "STOPPED"
+
+    print(
+        f"{timestamp.strftime('%H:%M')} | "
+        f"{status:8} | "
+        f"Plan {planned_minutes:3d}m | "
+        f"Run {run_minutes:3d}m | "
+        f"Rate {actual_rate:6.1f}/hr | "
+        f"Units {total_units:4d} | "
+        f"Good {good_units:4d} | "
+        f"OEE {oee:5.1f}%"
+    )
+
+    time.sleep(SIMULATION_MINUTE_SECONDS)
