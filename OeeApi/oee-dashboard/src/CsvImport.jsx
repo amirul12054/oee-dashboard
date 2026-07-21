@@ -20,6 +20,8 @@ const OEE_FIELDS = [
     { key: "colActualRate", label: "Actual Rate (units/hour)", required: true },
     { key: "colTotalUnits", label: "Total Units Produced", required: true },
     { key: "colGoodUnits", label: "Good Units", required: true },
+    { key: "colProduct", label: "Product/SKU (optional)", required: false },
+    { key: "colChangeover", label: "Changeover Time - minutes (optional)", required: false },
 ];
 
 export default function CsvImport({ onClose }) {

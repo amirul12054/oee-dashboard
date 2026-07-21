@@ -10,6 +10,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import HelpOutlineIcon from "@mui/icons-material/HelpOutlineOutlined";
+import EventBusyIcon from "@mui/icons-material/EventBusy";
 import Login from "./Login";
 import CsvImport from "./CsvImport";
 import OeeCharts from "./OeeCharts";
@@ -88,11 +89,54 @@ function aggregateReadings(readings) {
 // Status is derived from actual production data for the selected date/shift
 // instead of a manually-set flag that nothing keeps in sync with reality
 // (it never updates from CSV imports or the live simulator).
-function deriveStatus(availability, hasData) {
+function deriveStatus(availability, hasData, isHoliday) {
+  if (isHoliday) return { label: "Holiday", color: "info", icon: <EventBusyIcon /> };
   if (!hasData) return { label: "No Data", color: "default", icon: <HelpOutlineIcon /> };
   if (availability >= 70) return { label: "Running", color: "success", icon: <CheckCircleIcon /> };
   if (availability >= 20) return { label: "Reduced", color: "warning", icon: <WarningAmberIcon /> };
   return { label: "Down", color: "error", icon: <CancelIcon /> };
+}
+
+// Single source of truth for "what does this machine's tile show for the
+// selected date/shift" — used by both the summary cards and the table rows,
+// so they can never disagree, and neither one falls back to stale static
+// machine config when there's genuinely no reading for the period.
+function getMachineSnapshot(machine, dateReadings, selectedShift, isHoliday) {
+  const machineReadings = dateReadings.filter(r => r.machineId === machine.id);
+  const isAllShifts = selectedShift === "All";
+  const agg = isAllShifts ? aggregateReadings(machineReadings) : null;
+  const latestReading = machineReadings[0];
+  const hasData = isAllShifts ? !!agg : !!latestReading;
+
+  const availability = isAllShifts
+    ? (agg ? agg.availability : null)
+    : latestReading ? parseFloat(latestReading.availability) : null;
+  const performance = isAllShifts
+    ? (agg ? agg.performance : null)
+    : latestReading ? parseFloat(latestReading.performance) : null;
+  const quality = isAllShifts
+    ? (agg ? agg.quality : null)
+    : latestReading ? parseFloat(latestReading.quality) : null;
+  const oee = isAllShifts
+    ? (agg ? agg.oee : null)
+    : latestReading ? parseFloat(latestReading.oeeScore) : null;
+  const totalUnits = isAllShifts
+    ? (agg ? agg.totalUnits : 0)
+    : latestReading ? (latestReading.totalUnits || 0) : 0;
+  const totalGood = isAllShifts
+    ? (agg ? agg.totalGood : 0)
+    : latestReading ? (latestReading.goodUnits || 0) : 0;
+
+  const status = deriveStatus(availability, hasData, isHoliday);
+  const shiftLabel = isAllShifts
+    ? `${machineReadings.length} shift${machineReadings.length === 1 ? "" : "s"} · Full day`
+    : `${latestReading?.shiftName || "Day"} shift`;
+
+  return { hasData, availability, performance, quality, oee, totalUnits, totalGood, status, shiftLabel, machineReadings };
+}
+
+function isHolidayFor(machineId, dateStr, holidays) {
+  return holidays.some(h => h.date === dateStr && (h.machineId === null || h.machineId === undefined || h.machineId === machineId));
 }
 
 function OEEGauge({ value }) {
@@ -133,6 +177,15 @@ export default function App() {
   );
   const [selectedShift, setSelectedShift] = useState("All");
   const [dateReadings, setDateReadings] = useState([]);
+  const [holidays, setHolidays] = useState([]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_URL}/holidays`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setHolidays)
+      .catch(() => { /* non-critical, quietly skip */ });
+  }, [token]);
 
   const fetchDateReadings = useCallback(async (date, shift) => {
     const storedToken = localStorage.getItem("oee_token");
@@ -240,12 +293,23 @@ export default function App() {
     <ProfilePage onClose={() => setShowProfile(false)} />
   );
 
-  const averageOEE = dateReadings.length > 0
-    ? dateReadings.reduce((sum, r) => sum + parseFloat(r.oeeScore), 0) / dateReadings.length
-    : machines.length > 0
-      ? machines.reduce((sum, m) => sum + calculateOEE(m), 0) / machines.length
-      : 0;
-  const runningCount = machines.filter((m) => m.isRunning).length;
+  // Computed once per render, from real data only (no fallback to stale
+  // static machine config) — shared by the summary cards and table rows.
+  const snapshots = machines.map((m) => ({
+    machine: m,
+    snap: getMachineSnapshot(m, dateReadings, selectedShift, isHolidayFor(m.id, selectedDate, holidays)),
+  }));
+
+  const withData = snapshots.filter((s) => s.snap.hasData);
+  const averageOEE = withData.length > 0
+    ? withData.reduce((sum, s) => sum + (s.snap.oee || 0), 0) / withData.length
+    : 0;
+  const runningCount = snapshots.filter((s) => s.snap.status.label === "Running").length;
+  const reducedCount = snapshots.filter((s) => s.snap.status.label === "Reduced").length;
+  const downCount = snapshots.filter((s) => s.snap.status.label === "Down").length;
+  const noDataCount = snapshots.filter((s) => s.snap.status.label === "No Data").length;
+  const totalUnitsToday = withData.reduce((sum, s) => sum + s.snap.totalUnits, 0);
+  const totalGoodToday = withData.reduce((sum, s) => sum + s.snap.totalGood, 0);
 
   return (
     <Box sx={{ backgroundColor: "#f5f5f5", minHeight: "100vh", py: 4 }}>
@@ -273,6 +337,7 @@ export default function App() {
                 fetchDateReadings(e.target.value, selectedShift);
               }}
               InputLabelProps={{ shrink: true }}
+              inputProps={{ max: new Date().toISOString().split("T")[0] }}
               sx={{ width: 160 }}
             />
             <FormControl size="small" sx={{ minWidth: 130 }}>
@@ -345,7 +410,12 @@ export default function App() {
                   {runningCount}/{machines.length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {machines.length - runningCount} machine(s) stopped
+                  {reducedCount > 0 && `${reducedCount} reduced`}
+                  {reducedCount > 0 && downCount + noDataCount > 0 && " · "}
+                  {downCount > 0 && `${downCount} down`}
+                  {downCount > 0 && noDataCount > 0 && " · "}
+                  {noDataCount > 0 && `${noDataCount} no data`}
+                  {reducedCount === 0 && downCount === 0 && noDataCount === 0 && "All machines running well"}
                 </Typography>
               </CardContent>
             </Card>
@@ -355,14 +425,10 @@ export default function App() {
               <CardContent>
                 <Typography color="text.secondary" gutterBottom>Total Units Produced <InfoTip title={INFO.totalUnits} /></Typography>
                 <Typography variant="h3" sx={{ fontWeight: "bold" }} color="primary">
-                  {dateReadings.length > 0
-                    ? dateReadings.reduce((sum, r) => sum + r.totalUnits, 0)
-                    : machines.reduce((sum, m) => sum + m.unitsProduced, 0)}
+                  {totalUnitsToday}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Good units: {dateReadings.length > 0
-                    ? dateReadings.reduce((sum, r) => sum + r.goodUnits, 0)
-                    : machines.reduce((sum, m) => sum + m.goodUnits, 0)}
+                  Good units: {totalGoodToday}
                 </Typography>
               </CardContent>
             </Card>
@@ -383,43 +449,8 @@ export default function App() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {machines.map((machine) => {
-                // Find reading(s) for this machine on the selected date
-                const machineReadings = dateReadings.filter(r => r.machineId === machine.id);
-
-                // "All" shifts -> combine every shift into one time-weighted
-                // figure instead of just showing whichever reading happens
-                // to have the latest timestamp (always Night).
-                const isAllShifts = selectedShift === "All";
-                const agg = isAllShifts ? aggregateReadings(machineReadings) : null;
-                const latestReading = machineReadings[0];
-                const hasData = isAllShifts ? !!agg : !!latestReading;
-
-                const availability = isAllShifts
-                  ? (agg ? agg.availability : null)
-                  : latestReading
-                    ? parseFloat(latestReading.availability)
-                    : null;
-                const performance = isAllShifts
-                  ? (agg ? agg.performance : null)
-                  : latestReading
-                    ? parseFloat(latestReading.performance)
-                    : null;
-                const quality = isAllShifts
-                  ? (agg ? agg.quality : null)
-                  : latestReading
-                    ? parseFloat(latestReading.quality)
-                    : null;
-                const oee = isAllShifts
-                  ? (agg ? agg.oee : null)
-                  : latestReading
-                    ? parseFloat(latestReading.oeeScore)
-                    : null;
-
-                const status = deriveStatus(availability, hasData);
-                const shiftLabel = isAllShifts
-                  ? `${machineReadings.length} shift${machineReadings.length === 1 ? "" : "s"} · Full day`
-                  : `${latestReading?.shiftName || "Day"} shift`;
+              {snapshots.map(({ machine, snap }) => {
+                const { hasData, availability, performance, quality, oee, status, shiftLabel } = snap;
                 const pct = (v) => (v === null || v === undefined || isNaN(v)) ? "—" : `${v.toFixed(1)}%`;
 
                 return (

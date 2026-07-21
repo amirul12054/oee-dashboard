@@ -321,6 +321,12 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
     int colActualRate = int.Parse(form["colActualRate"]!);
     int colTotalUnits = int.Parse(form["colTotalUnits"]!);
     int colGoodUnits = int.Parse(form["colGoodUnits"]!);
+    // Optional columns: -1 means "not mapped" (frontend omits these unless the user maps them)
+    int colProduct = int.TryParse(form["colProduct"], out var cp) ? cp : -1;
+    int colChangeover = int.TryParse(form["colChangeover"], out var cc) ? cc : -1;
+
+    var shiftDefs = await db.ShiftDefinitions.ToListAsync();
+    var productCache = await db.Products.ToDictionaryAsync(p => p.Name.ToLowerInvariant(), p => p);
 
     var readings = new List<OeeReadingEntity>();
     var skipped = 0;
@@ -355,8 +361,26 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
     ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
     : DateTime.UtcNow;
 
-            var shiftName = recordedAt.Hour >= 6 && recordedAt.Hour < 18
-                ? "Morning" : "Night";
+            var shiftName = ShiftCalendar.DetermineShiftName(recordedAt, shiftDefs);
+
+            int? productId = null;
+            if (colProduct >= 0 && colProduct < cols.Length && !string.IsNullOrWhiteSpace(cols[colProduct]))
+            {
+                var productName = cols[colProduct].Trim();
+                var key = productName.ToLowerInvariant();
+                if (!productCache.TryGetValue(key, out var product))
+                {
+                    product = new ProductEntity { Sku = productName, Name = productName, IdealRate = idealRate };
+                    db.Products.Add(product);
+                    await db.SaveChangesAsync(); // need the generated Id before it can be referenced below
+                    productCache[key] = product;
+                }
+                productId = product.Id;
+            }
+
+            var changeoverMinutes = (colChangeover >= 0 && colChangeover < cols.Length)
+                ? (int)Math.Round(decimal.Parse(cols[colChangeover], CultureInfo.InvariantCulture))
+                : 0;
 
             readings.Add(new OeeReadingEntity
             {
@@ -374,7 +398,9 @@ app.MapPost("/import/process", async (HttpRequest request, OeeDbContext db) =>
                 Availability = Math.Round(availability * 100, 2),
                 Performance = Math.Round(performance * 100, 2),
                 Quality = Math.Round(quality * 100, 2),
-                OeeScore = Math.Round(oee, 2)
+                OeeScore = Math.Round(oee, 2),
+                ProductId = productId,
+                ChangeoverMinutes = changeoverMinutes
             });
         }
         catch (Exception rowEx)
@@ -706,6 +732,138 @@ app.MapGet("/setup-machine-connections", async (OeeDbContext db) =>
     return Results.Ok("Machine connection columns added");
 }).RequireAuthorization("AdminOnly");
 
+app.MapGet("/setup-shifts-products", async (OeeDbContext db) =>
+{
+    await db.Database.ExecuteSqlRawAsync(@"
+        CREATE TABLE IF NOT EXISTS ""ShiftDefinitions"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""Name"" VARCHAR(50) NOT NULL,
+            ""StartTime"" TIME NOT NULL,
+            ""EndTime"" TIME NOT NULL,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS ""Holidays"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""Date"" DATE NOT NULL,
+            ""Reason"" VARCHAR(255) NOT NULL DEFAULT '',
+            ""MachineId"" INTEGER NULL
+        );
+        CREATE TABLE IF NOT EXISTS ""Products"" (
+            ""Id"" SERIAL PRIMARY KEY,
+            ""Sku"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Name"" VARCHAR(255) NOT NULL,
+            ""IdealRate"" INTEGER NOT NULL DEFAULT 0,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE
+        );
+        ALTER TABLE ""Machines"" ADD COLUMN IF NOT EXISTS ""CurrentProductId"" INTEGER;
+        ALTER TABLE ""OeeReadings"" ADD COLUMN IF NOT EXISTS ""ProductId"" INTEGER;
+        ALTER TABLE ""OeeReadings"" ADD COLUMN IF NOT EXISTS ""ChangeoverMinutes"" INTEGER NOT NULL DEFAULT 0;
+    ");
+    return Results.Ok("Shift/holiday/product tables ready");
+}).RequireAuthorization("AdminOnly");
+
+// ============ SHIFT DEFINITIONS ============
+
+app.MapGet("/shifts", async (OeeDbContext db) =>
+    await db.ShiftDefinitions.OrderBy(s => s.SortOrder).ToListAsync()
+).RequireAuthorization();
+
+app.MapPost("/admin/shifts", async (OeeDbContext db, ShiftDefinitionEntity shift) =>
+{
+    db.ShiftDefinitions.Add(shift);
+    await db.SaveChangesAsync();
+    return Results.Created($"/shifts/{shift.Id}", shift);
+}).RequireAuthorization("AdminOnly");
+
+app.MapPut("/admin/shifts/{id}", async (OeeDbContext db, int id, ShiftDefinitionEntity updated) =>
+{
+    var shift = await db.ShiftDefinitions.FindAsync(id);
+    if (shift == null) return Results.NotFound();
+    shift.Name = updated.Name;
+    shift.StartTime = updated.StartTime;
+    shift.EndTime = updated.EndTime;
+    shift.IsActive = updated.IsActive;
+    shift.SortOrder = updated.SortOrder;
+    await db.SaveChangesAsync();
+    return Results.Ok(shift);
+}).RequireAuthorization("AdminOnly");
+
+app.MapDelete("/admin/shifts/{id}", async (OeeDbContext db, int id) =>
+{
+    var shift = await db.ShiftDefinitions.FindAsync(id);
+    if (shift == null) return Results.NotFound();
+    db.ShiftDefinitions.Remove(shift);
+    await db.SaveChangesAsync();
+    return Results.Ok("Shift deleted");
+}).RequireAuthorization("AdminOnly");
+
+// ============ HOLIDAYS ============
+
+app.MapGet("/holidays", async (OeeDbContext db) =>
+    await db.Holidays.OrderBy(h => h.Date).ToListAsync()
+).RequireAuthorization();
+
+app.MapPost("/admin/holidays", async (OeeDbContext db, HolidayEntity holiday) =>
+{
+    db.Holidays.Add(holiday);
+    await db.SaveChangesAsync();
+    return Results.Created($"/holidays/{holiday.Id}", holiday);
+}).RequireAuthorization("AdminOnly");
+
+app.MapDelete("/admin/holidays/{id}", async (OeeDbContext db, int id) =>
+{
+    var holiday = await db.Holidays.FindAsync(id);
+    if (holiday == null) return Results.NotFound();
+    db.Holidays.Remove(holiday);
+    await db.SaveChangesAsync();
+    return Results.Ok("Holiday deleted");
+}).RequireAuthorization("AdminOnly");
+
+// ============ PRODUCTS ============
+
+app.MapGet("/products", async (OeeDbContext db) =>
+    await db.Products.OrderBy(p => p.Name).ToListAsync()
+).RequireAuthorization();
+
+app.MapPost("/admin/products", async (OeeDbContext db, ProductEntity product) =>
+{
+    db.Products.Add(product);
+    await db.SaveChangesAsync();
+    return Results.Created($"/products/{product.Id}", product);
+}).RequireAuthorization("EngineerOrAdmin");
+
+app.MapPut("/admin/products/{id}", async (OeeDbContext db, int id, ProductEntity updated) =>
+{
+    var product = await db.Products.FindAsync(id);
+    if (product == null) return Results.NotFound();
+    product.Sku = updated.Sku;
+    product.Name = updated.Name;
+    product.IdealRate = updated.IdealRate;
+    product.IsActive = updated.IsActive;
+    await db.SaveChangesAsync();
+    return Results.Ok(product);
+}).RequireAuthorization("EngineerOrAdmin");
+
+app.MapDelete("/admin/products/{id}", async (OeeDbContext db, int id) =>
+{
+    var product = await db.Products.FindAsync(id);
+    if (product == null) return Results.NotFound();
+    db.Products.Remove(product);
+    await db.SaveChangesAsync();
+    return Results.Ok("Product deleted");
+}).RequireAuthorization("EngineerOrAdmin");
+
+// Quick product/changeover switch — any authenticated shop-floor role can log a changeover.
+app.MapPut("/machines/{id}/current-product", async (OeeDbContext db, int id, CurrentProductRequest req) =>
+{
+    var machine = await db.Machines.FindAsync(id);
+    if (machine == null) return Results.NotFound();
+    machine.CurrentProductId = req.ProductId;
+    await db.SaveChangesAsync();
+    return Results.Ok(machine);
+}).RequireAuthorization();
+
 // PUT update machine with connection settings
 app.MapPut("/admin/machines/{id}", async (OeeDbContext db, int id, MachineEntity updated) =>
 {
@@ -802,6 +960,7 @@ app.Run();
 
 // ============ RECORDS ============
 record LoginRequest(string Username, string Password);
+record CurrentProductRequest(int? ProductId);
 record ChangePasswordRequest(int UserId, string OldPassword, string NewPassword);
 record CreateUserRequest(string Username, string Role, string? PhoneNumber, string? Department);
 record UpdateRoleRequest(string Role);

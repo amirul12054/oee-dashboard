@@ -38,4 +38,7 @@ public class MachineEntity
     public int SnapshotIntervalMinutes { get; set; } = 5;
     public DateTime? LastConnectedAt { get; set; }
     public string? LastConnectionError { get; set; }
+
+    // Product / changeover tracking
+    public int? CurrentProductId { get; set; }
 }

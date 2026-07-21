@@ -71,7 +71,10 @@ public static class LiveReadingProcessor
     /// for the next snapshot window. Returns null if nothing has been
     /// sampled yet for this machine (e.g. just started, no data received).
     /// </summary>
-    public static OeeReadingEntity? BuildSnapshotAndReset(LiveMachineState state, int machineId, int idealRate)
+    public static OeeReadingEntity? BuildSnapshotAndReset(
+        LiveMachineState state, int machineId, int idealRate,
+        List<ShiftDefinitionEntity>? shiftDefs = null,
+        int? productId = null, int changeoverMinutes = 0)
     {
         lock (state.Lock)
         {
@@ -103,7 +106,7 @@ public static class LiveReadingProcessor
             // own timestamp, matching the convention used by CSV import and
             // avoiding the display/timezone bug fixed earlier in this project.
             var recordedAt = DateTime.Now;
-            var shiftName = recordedAt.Hour >= 6 && recordedAt.Hour < 18 ? "Morning" : "Night";
+            var shiftName = ShiftCalendar.DetermineShiftName(recordedAt, shiftDefs ?? new List<ShiftDefinitionEntity>());
 
             var availability = plannedMinutes > 0 ? Math.Round((decimal)runMinutes / plannedMinutes * 100m, 2) : 0m;
             var performance = idealRate > 0 ? Math.Round(actualRate / idealRate * 100m, 2) : 0m;
@@ -126,7 +129,9 @@ public static class LiveReadingProcessor
                 Availability = availability,
                 Performance = performance,
                 Quality = quality,
-                OeeScore = oee
+                OeeScore = oee,
+                ProductId = productId,
+                ChangeoverMinutes = changeoverMinutes
             };
 
             // Reset the window for the next snapshot.

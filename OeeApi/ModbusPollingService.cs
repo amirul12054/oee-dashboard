@@ -52,15 +52,18 @@ public class ModbusPollingService : BackgroundService
             .Where(m => m.ConnectionType == "Modbus" && m.ModbusIp != null)
             .ToListAsync(ct);
 
+        var shiftDefs = await db.ShiftDefinitions.ToListAsync(ct);
+        var products = await db.Products.ToDictionaryAsync(p => p.Id, ct);
+
         foreach (var machine in machines)
         {
-            await PollOneMachineAsync(db, machine, ct);
+            await PollOneMachineAsync(db, machine, shiftDefs, products, ct);
         }
 
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task PollOneMachineAsync(OeeDbContext db, MachineEntity machine, CancellationToken ct)
+    private async Task PollOneMachineAsync(OeeDbContext db, MachineEntity machine, List<ShiftDefinitionEntity> shiftDefs, Dictionary<int, ProductEntity> products, CancellationToken ct)
     {
         var state = _stateStore.GetOrAdd(machine.Id);
         var client = new ModbusTcpClient();
@@ -107,7 +110,11 @@ public class ModbusPollingService : BackgroundService
         // Flush a snapshot into OeeReadings every SnapshotIntervalMinutes.
         if ((DateTime.UtcNow - state.SnapshotStartUtc).TotalMinutes >= Math.Max(1, machine.SnapshotIntervalMinutes))
         {
-            var reading = LiveReadingProcessor.BuildSnapshotAndReset(state, machine.Id, machine.IdealRate);
+            var idealRate = machine.IdealRate;
+            if (machine.CurrentProductId.HasValue && products.TryGetValue(machine.CurrentProductId.Value, out var product))
+                idealRate = product.IdealRate;
+
+            var reading = LiveReadingProcessor.BuildSnapshotAndReset(state, machine.Id, idealRate, shiftDefs, machine.CurrentProductId);
             if (reading != null) db.OeeReadings.Add(reading);
         }
     }

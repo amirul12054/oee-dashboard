@@ -113,6 +113,7 @@ export default function OeeCharts({ machines }) {
                     value={fromDate}
                     onChange={(e) => setFromDate(e.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    inputProps={{ max: todayDate() }}
                 />
                 <TextField
                     label="To"
@@ -121,6 +122,7 @@ export default function OeeCharts({ machines }) {
                     value={toDate}
                     onChange={(e) => setToDate(e.target.value)}
                     InputLabelProps={{ shrink: true }}
+                    inputProps={{ max: todayDate() }}
                 />
                 <FormControl sx={{ minWidth: 140 }}>
                     <InputLabel>Shift</InputLabel>

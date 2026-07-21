@@ -182,7 +182,15 @@ public class OpcUaPollingService : BackgroundService
 
                     if ((DateTime.UtcNow - state.SnapshotStartUtc).TotalMinutes >= Math.Max(1, m.SnapshotIntervalMinutes))
                     {
-                        var reading = LiveReadingProcessor.BuildSnapshotAndReset(state, machineId, m.IdealRate);
+                        var shiftDefs = await db.ShiftDefinitions.ToListAsync(ct);
+                        var idealRate = m.IdealRate;
+                        if (m.CurrentProductId.HasValue)
+                        {
+                            var product = await db.Products.FindAsync(new object[] { m.CurrentProductId.Value }, ct);
+                            if (product != null) idealRate = product.IdealRate;
+                        }
+
+                        var reading = LiveReadingProcessor.BuildSnapshotAndReset(state, machineId, idealRate, shiftDefs, m.CurrentProductId);
                         if (reading != null) db.OeeReadings.Add(reading);
                     }
                     await db.SaveChangesAsync(ct);

@@ -16,4 +16,8 @@ public class OeeReadingEntity
     public decimal Performance { get; set; }
     public decimal Quality { get; set; }
     public decimal OeeScore { get; set; }
+
+    // Product / changeover tracking
+    public int? ProductId { get; set; }
+    public int ChangeoverMinutes { get; set; } = 0; // setup/changeover time for this period, tracked separately from RunTimeMinutes
 }

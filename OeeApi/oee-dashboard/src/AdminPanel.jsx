@@ -14,6 +14,7 @@ import LockResetIcon from "@mui/icons-material/LockReset";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import API_URL from "./config";
 import InfoTip from "./InfoTip";
+import ShiftCalendarPanel from "./ShiftCalendarPanel";
 
 const API = API_URL
 const token = () => localStorage.getItem("oee_token");
@@ -30,6 +31,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
     });
     const [showEditMachine, setShowEditMachine] = useState(false);
     const [editMachineData, setEditMachineData] = useState(null);
+    const [products, setProducts] = useState([]);
 
 
 
@@ -70,6 +72,25 @@ export default function AdminPanel({ onClose, currentUsername }) {
             .then((res) => res.json())
             .then(setMachines)
             .catch(() => setError("Failed to load machines"));
+    };
+
+    const fetchProducts = () => {
+        fetch(`${API}/products`, {
+            headers: { Authorization: `Bearer ${token()}` }
+        })
+            .then((res) => res.json())
+            .then(setProducts)
+            .catch(() => { /* non-critical, quietly skip */ });
+    };
+
+    const handleProductSwitch = async (machineId, productId) => {
+        const res = await fetch(`${API}/machines/${machineId}/current-product`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
+            body: JSON.stringify({ productId: productId || null }),
+        });
+        if (res.ok) fetchMachines();
+        else setError("Failed to switch product");
     };
 
 
@@ -203,7 +224,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         if (res.ok) { setSuccess("Contact deleted"); fetchContacts(); }
         else setError("Failed to delete contact");
     };
-    useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); }, []);
+    useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); fetchProducts(); }, []);
 
     const MachineForm = ({ data, onChange }) => (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
@@ -388,6 +409,9 @@ export default function AdminPanel({ onClose, currentUsername }) {
             {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError("")}>{error}</Alert>}
             {success && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess("")}>{success}</Alert>}
 
+            {/* Shift Calendar & Products Section */}
+            <ShiftCalendarPanel />
+
             {/* Users Section */}
             <Card elevation={2} sx={{ mb: 4, borderRadius: 3 }}>
                 <CardContent>
@@ -493,6 +517,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                     <TableCell sx={{ fontWeight: "bold" }}>Status <InfoTip title="A manually-set flag for this machine, independent of the live dashboard's data-driven status. Toggle it here to mark a machine as running or stopped." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="The maximum units/hour this machine can produce under optimal conditions. Used to calculate Performance (Actual Rate ÷ Ideal Rate)." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Connection <InfoTip title="How this machine's data gets into the dashboard: OPCUA Auto-connect (live PLC feed), CSV Import (manual/batch upload), or Modbus." /></TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Current Product <InfoTip title="Which product/SKU is running now. When set, live and CSV readings use this product's Ideal Rate instead of the machine's default — useful for multi-product lines." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -522,6 +547,20 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                                             : "○ Waiting for connection..."}
                                                 </Typography>
                                             )}
+                                        </TableCell>
+                                        <TableCell>
+                                            <FormControl size="small" sx={{ minWidth: 160 }}>
+                                                <Select
+                                                    value={machine.currentProductId || ""}
+                                                    displayEmpty
+                                                    onChange={(e) => handleProductSwitch(machine.id, e.target.value || null)}
+                                                >
+                                                    <MenuItem value="">— None —</MenuItem>
+                                                    {products.map((p) => (
+                                                        <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+                                                    ))}
+                                                </Select>
+                                            </FormControl>
                                         </TableCell>
                                         <TableCell>
                                             <IconButton size="small" color="primary"

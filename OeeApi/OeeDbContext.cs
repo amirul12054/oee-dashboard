@@ -15,4 +15,7 @@ public class OeeDbContext : DbContext
     public DbSet<PdcaEntity> Pdca { get; set; }
     public DbSet<BreakdownAssigneeEntity> BreakdownAssignees { get; set; }
     public DbSet<ContactEntity> Contacts { get; set; }
+    public DbSet<ShiftDefinitionEntity> ShiftDefinitions { get; set; }
+    public DbSet<HolidayEntity> Holidays { get; set; }
+    public DbSet<ProductEntity> Products { get; set; }
 }
