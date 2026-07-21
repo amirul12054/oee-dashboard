@@ -47,13 +47,6 @@ function parseToken(token) {
   }
 }
 
-function calculateOEE(machine) {
-  const availability = machine.runTimeMinutes / machine.plannedTimeMinutes;
-  const performance = machine.actualRate / machine.idealRate;
-  const quality = machine.goodUnits / machine.unitsProduced;
-  return availability * performance * quality * 100;
-}
-
 function getOEEColor(oee) {
   if (oee >= 85) return "success";
   if (oee >= 60) return "warning";
