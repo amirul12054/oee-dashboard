@@ -515,10 +515,9 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
                                     <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="The maximum units/hour this machine can produce under optimal conditions. Used to calculate Performance (Actual Rate ÷ Ideal Rate)." /></TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="This machine's default units/hour when no product is selected below. For CSV imports, the rate written in each row always wins regardless of this setting." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Connection <InfoTip title="How this machine's data gets into the dashboard: OPCUA Auto-connect (live PLC feed), CSV Import (manual/batch upload), or Modbus." /></TableCell>
-                                    <TableCell sx={{ fontWeight: "bold" }}>Current Product <InfoTip title="Which product/SKU is running now. When set, live and CSV readings use this product's Ideal Rate instead of the machine's default — useful for multi-product lines." /></TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Current Product <InfoTip title="Only affects live OPC-UA/Modbus readings — overrides the Ideal Rate used for those. Has no effect on CSV imports, since each CSV row carries its own Ideal Rate column." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Actions</TableCell>
                                 </TableRow>
                             </TableHead>
@@ -531,7 +530,18 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                             <Chip label={machine.isRunning ? "Running" : "Stopped"}
                                                 color={machine.isRunning ? "success" : "error"} size="small" />
                                         </TableCell>
-                                        <TableCell>{machine.idealRate} units/hr</TableCell>
+                                        <TableCell>
+                                            {machine.currentProductId && products.find(p => p.id === machine.currentProductId) ? (
+                                                <>
+                                                    {products.find(p => p.id === machine.currentProductId).idealRate} units/hr
+                                                    <Typography variant="caption" display="block" color="text.secondary">
+                                                        (from {products.find(p => p.id === machine.currentProductId).name} — live only)
+                                                    </Typography>
+                                                </>
+                                            ) : (
+                                                `${machine.idealRate} units/hr`
+                                            )}
+                                        </TableCell>
                                         <TableCell>
                                             <Chip
                                                 label={machine.connectionType || "CSV"}

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import {
     Box, Card, CardContent, Typography, Table, TableBody, TableCell,
     TableContainer, TableHead, TableRow, Button, TextField, IconButton,
-    Alert, Grid,
+    Alert, Grid, Chip,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import AddIcon from "@mui/icons-material/Add";
@@ -244,7 +244,7 @@ export default function ShiftCalendarPanel() {
                 <CardContent>
                     <Typography variant="h6" sx={{ fontWeight: "bold", mb: 1 }}>
                         Products / SKUs
-                        <InfoTip title="Each product can have its own Ideal Rate. Set a machine's 'Current Product' (in Machine Management) and live/CSV readings will use this product's Ideal Rate for Performance instead of the machine's default — useful for multi-product lines." />
+                        <InfoTip title="Each product can have its own Ideal Rate. Set a machine's 'Current Product' (in Machine Management) and live OPC-UA/Modbus readings will use this product's Ideal Rate for Performance instead of the machine's default. CSV imports are unaffected — each row's own Ideal Rate column always wins." />
                     </Typography>
                     <TableContainer sx={{ mb: 2 }}>
                         <Table size="small">
