@@ -226,173 +226,192 @@ export default function AdminPanel({ onClose, currentUsername }) {
     };
     useEffect(() => { fetchUsers(); fetchMachines(); fetchContacts(); fetchProducts(); }, []);
 
-    const MachineForm = ({ data, onChange }) => (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
-            <TextField label="Machine Name *" value={data.name || ""}
-                onChange={(e) => onChange({ ...data, name: e.target.value })} fullWidth />
-            <TextField label="Ideal Rate (units/hour)" type="number" value={data.idealRate || 0}
-                onChange={(e) => onChange({ ...data, idealRate: parseInt(e.target.value) })} fullWidth />
-            <TextField label="Planned Time per Shift (minutes)" type="number" value={data.plannedTimeMinutes || 480}
-                onChange={(e) => onChange({ ...data, plannedTimeMinutes: parseInt(e.target.value) })} fullWidth />
-            <TextField label="Is Running" select value={(data.isRunning || false).toString()}
-                onChange={(e) => onChange({ ...data, isRunning: e.target.value === "true" })} fullWidth>
-                <MenuItem value="true">Running</MenuItem>
-                <MenuItem value="false">Stopped</MenuItem>
-            </TextField>
+    const MachineForm = ({ data, onChange }) => {
+        const activeProduct = products.find(p => p.id === data.currentProductId);
+        return (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
+                <TextField label="Machine Name *" value={data.name || ""}
+                    onChange={(e) => onChange({ ...data, name: e.target.value })} fullWidth />
+                <FormControl fullWidth>
+                    <InputLabel>Current Product</InputLabel>
+                    <Select value={data.currentProductId || ""} label="Current Product"
+                        onChange={(e) => onChange({ ...data, currentProductId: e.target.value || null })}>
+                        <MenuItem value="">— None (use this machine's default Ideal Rate) —</MenuItem>
+                        {products.map((p) => (
+                            <MenuItem key={p.id} value={p.id}>{p.name} ({p.idealRate} units/hr)</MenuItem>
+                        ))}
+                    </Select>
+                </FormControl>
+                <TextField
+                    label={activeProduct ? `Ideal Rate — overridden by "${activeProduct.name}" for live readings` : "Ideal Rate (units/hour)"}
+                    type="number" value={activeProduct ? activeProduct.idealRate : (data.idealRate || 0)}
+                    disabled={!!activeProduct}
+                    helperText={activeProduct
+                        ? "This machine's own Ideal Rate is hidden while a product is selected above, since live OPC-UA/Modbus readings will use the product's rate instead. CSV imports are unaffected either way — each row's own Ideal Rate column always wins."
+                        : "Used as the default for live readings when no Current Product is selected, and has no effect on CSV imports (each row carries its own rate)."}
+                    onChange={(e) => onChange({ ...data, idealRate: parseInt(e.target.value) })} fullWidth />
+                <TextField label="Planned Time per Shift (minutes)" type="number" value={data.plannedTimeMinutes || 480}
+                    onChange={(e) => onChange({ ...data, plannedTimeMinutes: parseInt(e.target.value) })} fullWidth />
+                <TextField label="Is Running" select value={(data.isRunning || false).toString()}
+                    onChange={(e) => onChange({ ...data, isRunning: e.target.value === "true" })} fullWidth>
+                    <MenuItem value="true">Running</MenuItem>
+                    <MenuItem value="false">Stopped</MenuItem>
+                </TextField>
 
-            {/* Connection Type */}
-            <FormControl fullWidth>
-                <InputLabel>Data Connection Type</InputLabel>
-                <Select value={data.connectionType || "CSV"} label="Data Connection Type"
-                    onChange={(e) => onChange({ ...data, connectionType: e.target.value })}>
-                    <MenuItem value="CSV">📄 CSV Import (Basic)</MenuItem>
-                    <MenuItem value="OPCUA">🔌 OPC-UA Auto Connect (Standard)</MenuItem>
-                    <MenuItem value="Modbus">⚙️ Modbus TCP (Advanced)</MenuItem>
-                </Select>
-            </FormControl>
+                {/* Connection Type */}
+                <FormControl fullWidth>
+                    <InputLabel>Data Connection Type</InputLabel>
+                    <Select value={data.connectionType || "CSV"} label="Data Connection Type"
+                        onChange={(e) => onChange({ ...data, connectionType: e.target.value })}>
+                        <MenuItem value="CSV">📄 CSV Import (Basic)</MenuItem>
+                        <MenuItem value="OPCUA">🔌 OPC-UA Auto Connect (Standard)</MenuItem>
+                        <MenuItem value="Modbus">⚙️ Modbus TCP (Advanced)</MenuItem>
+                    </Select>
+                </FormControl>
 
-            {/* Live connection settings shared by OPC-UA and Modbus */}
-            {(data.connectionType === "OPCUA" || data.connectionType === "Modbus") && (
-                <Box sx={{ p: 2, border: "1px solid #9c27b0", borderRadius: 2, backgroundColor: "#faf5fc" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#9c27b0" }}>
-                        📡 Live Data Settings
-                    </Typography>
-                    <TextField label="Snapshot Interval (minutes)" type="number" value={data.snapshotIntervalMinutes || 5}
-                        onChange={(e) => onChange({ ...data, snapshotIntervalMinutes: parseInt(e.target.value) })}
-                        helperText="How often live readings are saved as a data point (e.g. every 5 minutes). Shorter = more granular trend data."
-                        fullWidth size="small" sx={{ mb: 1.5 }} />
-                    {data.id && (
-                        <Box sx={{ mt: 1 }}>
-                            {data.lastConnectionError ? (
-                                <Alert severity="error" sx={{ fontSize: "0.8rem" }}>
-                                    Connection error: {data.lastConnectionError}
-                                </Alert>
-                            ) : data.lastConnectedAt ? (
-                                <Alert severity="success" sx={{ fontSize: "0.8rem" }}>
-                                    Last connected: {new Date(data.lastConnectedAt).toLocaleString()}
-                                </Alert>
-                            ) : (
-                                <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
-                                    Not connected yet — save this machine and the background poller will pick it up shortly.
-                                </Alert>
-                            )}
+                {/* Live connection settings shared by OPC-UA and Modbus */}
+                {(data.connectionType === "OPCUA" || data.connectionType === "Modbus") && (
+                    <Box sx={{ p: 2, border: "1px solid #9c27b0", borderRadius: 2, backgroundColor: "#faf5fc" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#9c27b0" }}>
+                            📡 Live Data Settings
+                        </Typography>
+                        <TextField label="Snapshot Interval (minutes)" type="number" value={data.snapshotIntervalMinutes || 5}
+                            onChange={(e) => onChange({ ...data, snapshotIntervalMinutes: parseInt(e.target.value) })}
+                            helperText="How often live readings are saved as a data point (e.g. every 5 minutes). Shorter = more granular trend data."
+                            fullWidth size="small" sx={{ mb: 1.5 }} />
+                        {data.id && (
+                            <Box sx={{ mt: 1 }}>
+                                {data.lastConnectionError ? (
+                                    <Alert severity="error" sx={{ fontSize: "0.8rem" }}>
+                                        Connection error: {data.lastConnectionError}
+                                    </Alert>
+                                ) : data.lastConnectedAt ? (
+                                    <Alert severity="success" sx={{ fontSize: "0.8rem" }}>
+                                        Last connected: {new Date(data.lastConnectedAt).toLocaleString()}
+                                    </Alert>
+                                ) : (
+                                    <Alert severity="info" sx={{ fontSize: "0.8rem" }}>
+                                        Not connected yet — save this machine and the background poller will pick it up shortly.
+                                    </Alert>
+                                )}
+                            </Box>
+                        )}
+                    </Box>
+                )}
+
+                {/* CSV Settings */}
+                {(data.connectionType === "CSV" || !data.connectionType) && (
+                    <Box sx={{ p: 2, border: "1px solid #e0e0e0", borderRadius: 2, backgroundColor: "#f9f9f9" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
+                            📄 CSV Import Settings
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
+                            Use the Import CSV button on the dashboard to upload machine data files manually.
+                            OEE will be calculated from each imported file.
+                        </Typography>
+                        <TextField label="CSV Auto-Import File Path (optional)" value={data.csvFilePath || ""}
+                            onChange={(e) => onChange({ ...data, csvFilePath: e.target.value })}
+                            placeholder="e.g. C:\MachineData\CNC01_output.csv"
+                            helperText="If set, system will watch this path for new files automatically"
+                            fullWidth size="small" />
+                    </Box>
+                )}
+
+                {/* OPC-UA Settings */}
+                {data.connectionType === "OPCUA" && (
+                    <Box sx={{ p: 2, border: "1px solid #1976d2", borderRadius: 2, backgroundColor: "#f0f7ff" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#1976d2" }}>
+                            🔌 OPC-UA Connection Settings
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                            OPC-UA is supported by most modern PLCs (Siemens S7-1200/1500, Fanuc, Beckhoff, Mitsubishi iQ-R).
+                            Enable OPC-UA server on your PLC first, then enter the connection details below.
+                        </Typography>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            <TextField label="OPC-UA Endpoint URL *" value={data.opcUaEndpoint || ""}
+                                onChange={(e) => onChange({ ...data, opcUaEndpoint: e.target.value })}
+                                placeholder="opc.tcp://192.168.1.100:4840"
+                                helperText="Format: opc.tcp://[PLC IP Address]:[Port, default 4840]"
+                                fullWidth size="small" />
+                            <TextField label="Namespace Index" type="number" value={data.opcUaNamespace || 2}
+                                onChange={(e) => onChange({ ...data, opcUaNamespace: parseInt(e.target.value) })}
+                                helperText="Usually 2 for user-defined tags. Check your PLC OPC-UA configuration."
+                                fullWidth size="small" />
+                            <TextField label="Node ID — Run Status" value={data.opcUaNodeRunStatus || ""}
+                                onChange={(e) => onChange({ ...data, opcUaNodeRunStatus: e.target.value })}
+                                placeholder="e.g. ns=2;s=Machine1.RunStatus"
+                                helperText="Tag that returns 1=Running, 0=Stopped"
+                                fullWidth size="small" />
+                            <TextField label="Node ID — Unit Count" value={data.opcUaNodeUnitCount || ""}
+                                onChange={(e) => onChange({ ...data, opcUaNodeUnitCount: e.target.value })}
+                                placeholder="e.g. ns=2;s=Machine1.TotalCount"
+                                helperText="Tag for total units produced this shift"
+                                fullWidth size="small" />
+                            <TextField label="Node ID — Good Units" value={data.opcUaNodeGoodUnits || ""}
+                                onChange={(e) => onChange({ ...data, opcUaNodeGoodUnits: e.target.value })}
+                                placeholder="e.g. ns=2;s=Machine1.GoodCount"
+                                helperText="Tag for good/pass units (leave empty if not available)"
+                                fullWidth size="small" />
+                            <TextField label="Node ID — Fault Status" value={data.opcUaNodeFaultStatus || ""}
+                                onChange={(e) => onChange({ ...data, opcUaNodeFaultStatus: e.target.value })}
+                                placeholder="e.g. ns=2;s=Machine1.FaultCode"
+                                helperText="Tag for fault/alarm code (optional, used for downtime tracking)"
+                                fullWidth size="small" />
                         </Box>
-                    )}
-                </Box>
-            )}
-
-            {/* CSV Settings */}
-            {(data.connectionType === "CSV" || !data.connectionType) && (
-                <Box sx={{ p: 2, border: "1px solid #e0e0e0", borderRadius: 2, backgroundColor: "#f9f9f9" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1 }}>
-                        📄 CSV Import Settings
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1 }}>
-                        Use the Import CSV button on the dashboard to upload machine data files manually.
-                        OEE will be calculated from each imported file.
-                    </Typography>
-                    <TextField label="CSV Auto-Import File Path (optional)" value={data.csvFilePath || ""}
-                        onChange={(e) => onChange({ ...data, csvFilePath: e.target.value })}
-                        placeholder="e.g. C:\MachineData\CNC01_output.csv"
-                        helperText="If set, system will watch this path for new files automatically"
-                        fullWidth size="small" />
-                </Box>
-            )}
-
-            {/* OPC-UA Settings */}
-            {data.connectionType === "OPCUA" && (
-                <Box sx={{ p: 2, border: "1px solid #1976d2", borderRadius: 2, backgroundColor: "#f0f7ff" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#1976d2" }}>
-                        🔌 OPC-UA Connection Settings
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-                        OPC-UA is supported by most modern PLCs (Siemens S7-1200/1500, Fanuc, Beckhoff, Mitsubishi iQ-R).
-                        Enable OPC-UA server on your PLC first, then enter the connection details below.
-                    </Typography>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                        <TextField label="OPC-UA Endpoint URL *" value={data.opcUaEndpoint || ""}
-                            onChange={(e) => onChange({ ...data, opcUaEndpoint: e.target.value })}
-                            placeholder="opc.tcp://192.168.1.100:4840"
-                            helperText="Format: opc.tcp://[PLC IP Address]:[Port, default 4840]"
-                            fullWidth size="small" />
-                        <TextField label="Namespace Index" type="number" value={data.opcUaNamespace || 2}
-                            onChange={(e) => onChange({ ...data, opcUaNamespace: parseInt(e.target.value) })}
-                            helperText="Usually 2 for user-defined tags. Check your PLC OPC-UA configuration."
-                            fullWidth size="small" />
-                        <TextField label="Node ID — Run Status" value={data.opcUaNodeRunStatus || ""}
-                            onChange={(e) => onChange({ ...data, opcUaNodeRunStatus: e.target.value })}
-                            placeholder="e.g. ns=2;s=Machine1.RunStatus"
-                            helperText="Tag that returns 1=Running, 0=Stopped"
-                            fullWidth size="small" />
-                        <TextField label="Node ID — Unit Count" value={data.opcUaNodeUnitCount || ""}
-                            onChange={(e) => onChange({ ...data, opcUaNodeUnitCount: e.target.value })}
-                            placeholder="e.g. ns=2;s=Machine1.TotalCount"
-                            helperText="Tag for total units produced this shift"
-                            fullWidth size="small" />
-                        <TextField label="Node ID — Good Units" value={data.opcUaNodeGoodUnits || ""}
-                            onChange={(e) => onChange({ ...data, opcUaNodeGoodUnits: e.target.value })}
-                            placeholder="e.g. ns=2;s=Machine1.GoodCount"
-                            helperText="Tag for good/pass units (leave empty if not available)"
-                            fullWidth size="small" />
-                        <TextField label="Node ID — Fault Status" value={data.opcUaNodeFaultStatus || ""}
-                            onChange={(e) => onChange({ ...data, opcUaNodeFaultStatus: e.target.value })}
-                            placeholder="e.g. ns=2;s=Machine1.FaultCode"
-                            helperText="Tag for fault/alarm code (optional, used for downtime tracking)"
-                            fullWidth size="small" />
                     </Box>
-                </Box>
-            )}
+                )}
 
-            {/* Modbus Settings */}
-            {data.connectionType === "Modbus" && (
-                <Box sx={{ p: 2, border: "1px solid #ed6c02", borderRadius: 2, backgroundColor: "#fff8f0" }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#ed6c02" }}>
-                        ⚙️ Modbus TCP Connection Settings
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
-                        Modbus TCP works with most industrial equipment (Siemens S7-200/300/400, Allen Bradley,
-                        Schneider, older PLCs). Your PLC must have Modbus TCP server enabled.
-                        Register addresses are in decimal format.
-                    </Typography>
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-                        <TextField label="PLC IP Address *" value={data.modbusIp || ""}
-                            onChange={(e) => onChange({ ...data, modbusIp: e.target.value })}
-                            placeholder="e.g. 192.168.1.100"
-                            helperText="IP address of your PLC on the factory network"
-                            fullWidth size="small" />
-                        <TextField label="Port" type="number" value={data.modbusPort || 502}
-                            onChange={(e) => onChange({ ...data, modbusPort: parseInt(e.target.value) })}
-                            helperText="Default Modbus TCP port is 502"
-                            fullWidth size="small" />
-                        <TextField label="Slave ID / Unit ID" type="number" value={data.modbusSlaveId || 1}
-                            onChange={(e) => onChange({ ...data, modbusSlaveId: parseInt(e.target.value) })}
-                            helperText="Usually 1. Check your PLC Modbus configuration."
-                            fullWidth size="small" />
-                        <TextField label="Register — Run Status" type="number" value={data.modbusRegRunStatus || ""}
-                            onChange={(e) => onChange({ ...data, modbusRegRunStatus: parseInt(e.target.value) })}
-                            placeholder="e.g. 100"
-                            helperText="Holding register address for machine run status (1=Running, 0=Stopped)"
-                            fullWidth size="small" />
-                        <TextField label="Register — Unit Count" type="number" value={data.modbusRegUnitCount || ""}
-                            onChange={(e) => onChange({ ...data, modbusRegUnitCount: parseInt(e.target.value) })}
-                            placeholder="e.g. 101"
-                            helperText="Holding register address for total units produced"
-                            fullWidth size="small" />
-                        <TextField label="Register — Good Units" type="number" value={data.modbusRegGoodUnits || ""}
-                            onChange={(e) => onChange({ ...data, modbusRegGoodUnits: parseInt(e.target.value) })}
-                            placeholder="e.g. 102"
-                            helperText="Holding register address for good/pass units (optional)"
-                            fullWidth size="small" />
-                        <TextField label="Register — Fault Status" type="number" value={data.modbusRegFaultStatus || ""}
-                            onChange={(e) => onChange({ ...data, modbusRegFaultStatus: parseInt(e.target.value) })}
-                            placeholder="e.g. 103"
-                            helperText="Holding register address for fault/alarm code (optional)"
-                            fullWidth size="small" />
+                {/* Modbus Settings */}
+                {data.connectionType === "Modbus" && (
+                    <Box sx={{ p: 2, border: "1px solid #ed6c02", borderRadius: 2, backgroundColor: "#fff8f0" }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 1, color: "#ed6c02" }}>
+                            ⚙️ Modbus TCP Connection Settings
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 2 }}>
+                            Modbus TCP works with most industrial equipment (Siemens S7-200/300/400, Allen Bradley,
+                            Schneider, older PLCs). Your PLC must have Modbus TCP server enabled.
+                            Register addresses are in decimal format.
+                        </Typography>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+                            <TextField label="PLC IP Address *" value={data.modbusIp || ""}
+                                onChange={(e) => onChange({ ...data, modbusIp: e.target.value })}
+                                placeholder="e.g. 192.168.1.100"
+                                helperText="IP address of your PLC on the factory network"
+                                fullWidth size="small" />
+                            <TextField label="Port" type="number" value={data.modbusPort || 502}
+                                onChange={(e) => onChange({ ...data, modbusPort: parseInt(e.target.value) })}
+                                helperText="Default Modbus TCP port is 502"
+                                fullWidth size="small" />
+                            <TextField label="Slave ID / Unit ID" type="number" value={data.modbusSlaveId || 1}
+                                onChange={(e) => onChange({ ...data, modbusSlaveId: parseInt(e.target.value) })}
+                                helperText="Usually 1. Check your PLC Modbus configuration."
+                                fullWidth size="small" />
+                            <TextField label="Register — Run Status" type="number" value={data.modbusRegRunStatus || ""}
+                                onChange={(e) => onChange({ ...data, modbusRegRunStatus: parseInt(e.target.value) })}
+                                placeholder="e.g. 100"
+                                helperText="Holding register address for machine run status (1=Running, 0=Stopped)"
+                                fullWidth size="small" />
+                            <TextField label="Register — Unit Count" type="number" value={data.modbusRegUnitCount || ""}
+                                onChange={(e) => onChange({ ...data, modbusRegUnitCount: parseInt(e.target.value) })}
+                                placeholder="e.g. 101"
+                                helperText="Holding register address for total units produced"
+                                fullWidth size="small" />
+                            <TextField label="Register — Good Units" type="number" value={data.modbusRegGoodUnits || ""}
+                                onChange={(e) => onChange({ ...data, modbusRegGoodUnits: parseInt(e.target.value) })}
+                                placeholder="e.g. 102"
+                                helperText="Holding register address for good/pass units (optional)"
+                                fullWidth size="small" />
+                            <TextField label="Register — Fault Status" type="number" value={data.modbusRegFaultStatus || ""}
+                                onChange={(e) => onChange({ ...data, modbusRegFaultStatus: parseInt(e.target.value) })}
+                                placeholder="e.g. 103"
+                                helperText="Holding register address for fault/alarm code (optional)"
+                                fullWidth size="small" />
+                        </Box>
                     </Box>
-                </Box>
-            )}
-        </Box>
-    );
+                )}
+            </Box>
+        );
+    };
 
     return (
         <Box sx={{ p: 3 }}>
@@ -515,6 +534,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
                                 <TableRow sx={{ backgroundColor: "#f0f0f0" }}>
                                     <TableCell sx={{ fontWeight: "bold" }}>ID</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Name</TableCell>
+                                    <TableCell sx={{ fontWeight: "bold" }}>Status</TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Ideal Rate <InfoTip title="This machine's default units/hour when no product is selected below. For CSV imports, the rate written in each row always wins regardless of this setting." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Connection <InfoTip title="How this machine's data gets into the dashboard: OPCUA Auto-connect (live PLC feed), CSV Import (manual/batch upload), or Modbus." /></TableCell>
                                     <TableCell sx={{ fontWeight: "bold" }}>Current Product <InfoTip title="Only affects live OPC-UA/Modbus readings — overrides the Ideal Rate used for those. Has no effect on CSV imports, since each CSV row carries its own Ideal Rate column." /></TableCell>
