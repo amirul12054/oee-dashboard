@@ -49,6 +49,25 @@ builder.Services.AddAuthorization(options =>
 
 var app = builder.Build();
 
+// Create all tables on a fresh database and seed the first admin account
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<OeeDbContext>();
+    db.Database.EnsureCreated();
+    if (!db.Users.Any())
+    {
+        var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "admin123";
+        db.Users.Add(new UserEntity
+        {
+            Username = "admin",
+            Email = "admin@oee.local",
+            PasswordHash = BCrypt.Net.BCrypt.HashPassword(adminPassword),
+            Role = "admin"
+        });
+        db.SaveChanges();
+    }
+}
+
 app.UseCors(x => x.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader());
 app.UseAuthentication();
 app.UseAuthorization();
