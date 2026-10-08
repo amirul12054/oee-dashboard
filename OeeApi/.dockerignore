@@ -1,0 +1,4 @@
+bin/
+obj/
+oee-dashboard/
+*.py
