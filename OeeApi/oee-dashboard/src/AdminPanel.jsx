@@ -19,6 +19,27 @@ import ShiftCalendarPanel from "./ShiftCalendarPanel";
 const API = API_URL
 const token = () => localStorage.getItem("oee_token");
 
+// The backend expects real numbers (or null) for numeric machine fields.
+// Empty text boxes send "" and cleared number boxes send NaN, both of which
+// make the API reject the whole request with HTTP 400.
+const INT_FIELDS = ["unitsProduced", "goodUnits", "plannedTimeMinutes", "runTimeMinutes",
+    "idealRate", "actualRate", "opcUaNamespace", "modbusPort", "modbusSlaveId", "snapshotIntervalMinutes"];
+const INT_DEFAULTS = { plannedTimeMinutes: 480, opcUaNamespace: 2, modbusPort: 502, modbusSlaveId: 1, snapshotIntervalMinutes: 5 };
+const NULLABLE_INT_FIELDS = ["modbusRegRunStatus", "modbusRegUnitCount", "modbusRegGoodUnits",
+    "modbusRegFaultStatus", "currentProductId"];
+const cleanMachine = (m) => {
+    const out = { ...m };
+    INT_FIELDS.forEach(k => {
+        const n = parseInt(out[k]);
+        out[k] = Number.isNaN(n) ? (INT_DEFAULTS[k] ?? 0) : n;
+    });
+    NULLABLE_INT_FIELDS.forEach(k => {
+        const n = parseInt(out[k]);
+        out[k] = Number.isNaN(n) ? null : n;
+    });
+    return out;
+};
+
 export default function AdminPanel({ onClose, currentUsername }) {
     const [users, setUsers] = useState([]);
     const [machines, setMachines] = useState([]);
@@ -146,7 +167,7 @@ export default function AdminPanel({ onClose, currentUsername }) {
         const res = await fetch(`${API_URL}/admin/machines`, {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-            body: JSON.stringify(newMachine)
+            body: JSON.stringify(cleanMachine(newMachine))
         });
         if (res.ok) {
             setSuccess(`Machine ${newMachine.name} added`);
@@ -164,20 +185,28 @@ export default function AdminPanel({ onClose, currentUsername }) {
                 csvFilePath: "", csvAutoImport: false, snapshotIntervalMinutes: 5
             });
             fetchMachines();
-        } else setError("Failed to add machine");
+        } else {
+            const text = await res.text().catch(() => "");
+            setShowAddMachine(false);
+            setError(`Failed to add machine (HTTP ${res.status}) ${text}`.trim());
+        }
     };
 
     const handleEditMachineSave = async () => {
         const res = await fetch(`${API_URL}/admin/machines/${editMachineData.id}`, {
             method: "PUT",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token()}` },
-            body: JSON.stringify(editMachineData)
+            body: JSON.stringify(cleanMachine(editMachineData))
         });
         if (res.ok) {
             setSuccess(`Machine ${editMachineData.name} updated`);
             setShowEditMachine(false);
             fetchMachines();
-        } else setError("Failed to update machine");
+        } else {
+            const text = await res.text().catch(() => "");
+            setShowEditMachine(false);
+            setError(`Failed to update machine (HTTP ${res.status}) ${text}`.trim());
+        }
     };
 
     const handleDeleteMachine = async (machine) => {
@@ -721,23 +750,6 @@ export default function AdminPanel({ onClose, currentUsername }) {
                 <DialogContent>
                     <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 1 }}>
                         <MachineForm data={newMachine} onChange={setNewMachine} />
-                        <TextField label="Machine Name" value={newMachine.name}
-                            onChange={(e) => setNewMachine({ ...newMachine, name: e.target.value })}
-                            fullWidth />
-                        <TextField label="Ideal Rate (units/hour)" type="number"
-                            value={newMachine.idealRate}
-                            onChange={(e) => setNewMachine({ ...newMachine, idealRate: parseInt(e.target.value) })}
-                            fullWidth />
-                        <TextField label="Planned Time per Shift (minutes)" type="number"
-                            value={newMachine.plannedTimeMinutes}
-                            onChange={(e) => setNewMachine({ ...newMachine, plannedTimeMinutes: parseInt(e.target.value) })}
-                            fullWidth />
-                        <TextField label="Is Running" select value={newMachine.isRunning.toString()}
-                            onChange={(e) => setNewMachine({ ...newMachine, isRunning: e.target.value === "true" })}
-                            fullWidth>
-                            <MenuItem value="true">Running</MenuItem>
-                            <MenuItem value="false">Stopped</MenuItem>
-                        </TextField>
                     </Box>
 
                 </DialogContent>
